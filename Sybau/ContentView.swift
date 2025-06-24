@@ -4,6 +4,7 @@ struct ContentView: View {
     @ObservedObject var coordinator = MPVMetalPlayerView.Coordinator()
     @State var loading = false
     @State private var showPlaylist = false
+    @State private var isFullscreen = false
     
     var body: some View {
         GeometryReader { geometry in
@@ -18,6 +19,7 @@ struct ContentView: View {
                         }
                     }
                     .edgesIgnoringSafeArea(.all)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 
                 if loading {
                     ProgressView()
@@ -33,7 +35,24 @@ struct ContentView: View {
                                 .font(.title2)
                                 .padding()
                         }
+                        
                         Spacer()
+                        
+                        Button(action: {
+                            isFullscreen.toggle()
+                            if isFullscreen {
+                                OrientationLock.lock(to: .landscape)
+                                UIApplication.setOrientation(.landscapeRight, isPortrait: false)
+                            } else {
+                                OrientationLock.lock(to: .portrait)
+                                UIApplication.setOrientation(.portrait, isPortrait: true)
+                            }
+                        }) {
+                            Image(systemName: isFullscreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                                .foregroundColor(.white)
+                                .font(.title2)
+                                .padding()
+                        }
                     }
                     .background(LinearGradient(
                         gradient: Gradient(colors: [Color.black.opacity(0.7), .clear]),
@@ -43,6 +62,14 @@ struct ContentView: View {
                     
                     Spacer()
                     MediaControlsView(coordinator: coordinator)
+                        .onAppear {
+                            NotificationCenter.default.addObserver(
+                                forName: NSNotification.Name("VideoChanged"),
+                                object: nil,
+                                queue: .main) { _ in
+                                    coordinator.objectWillChange.send()
+                                }
+                        }
                 }
                 
                 if showPlaylist {
@@ -51,6 +78,19 @@ struct ContentView: View {
                 }
             }
             .preferredColorScheme(.dark)
+            .onAppear {
+                UIDevice.current.setValue(UIDeviceOrientation.unknown.rawValue, forKey: "orientation")
+                
+                NotificationCenter.default.addObserver(forName: UIDevice.orientationDidChangeNotification, object: nil, queue: .main) { _ in
+                    let orientation = UIDevice.current.orientation
+                    if orientation.isLandscape {
+                        isFullscreen = true
+                    } else if orientation.isPortrait {
+                        isFullscreen = false
+                    }
+                }
+            }
+            .statusBar(hidden: isFullscreen)
         }
     }
     

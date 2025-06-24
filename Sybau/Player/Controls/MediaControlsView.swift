@@ -1,3 +1,10 @@
+//
+//  MediaControlsView.swift
+//  Sybau
+//
+//  Created by Francesco on 24/06/25.
+//
+
 import SwiftUI
 
 struct MediaControlsView: View {
@@ -36,6 +43,7 @@ struct MediaControlsView: View {
             HStack(spacing: 30) {
                 Button(action: {
                     coordinator.seek(by: -10)
+                    resetControlsTimer()
                 }) {
                     Image(systemName: "gobackward.10")
                         .font(.title)
@@ -49,6 +57,7 @@ struct MediaControlsView: View {
                         coordinator.play()
                     }
                     isPlaying.toggle()
+                    resetControlsTimer()
                 }) {
                     Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 44))
@@ -57,6 +66,7 @@ struct MediaControlsView: View {
                 
                 Button(action: {
                     coordinator.seek(by: 10)
+                    resetControlsTimer()
                 }) {
                     Image(systemName: "goforward.10")
                         .font(.title)
@@ -81,12 +91,19 @@ struct MediaControlsView: View {
         }
         .onAppear {
             resetControlsTimer()
+            NotificationCenter.default.addObserver(
+                forName: NSNotification.Name("VideoChanged"),
+                object: nil,
+                queue: .main) { _ in
+                    resetControlsTimer()
+                }
         }
         .onReceive(coordinator.$currentTime) { newTime in
             currentTime = newTime
         }
         .onReceive(coordinator.$duration) { newDuration in
             duration = newDuration
+            resetControlsTimer()
         }
         .onReceive(coordinator.$isPlaying) { playing in
             isPlaying = playing
