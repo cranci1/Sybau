@@ -1,65 +1,71 @@
-//
-//  ContentView.swift
-//  Sybau
-//
-//  Created by Francesco on 22/06/25.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @ObservedObject var coordinator = MPVMetalPlayerView.Coordinator()
+    @State var loading = false
+    
+    
     var body: some View {
-        TabView {
-            MediaLibraryView()
-                .tabItem {
-                    Label("Library", systemImage: "tv")
-                }
-            
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gear")
+        VStack {
+            MPVMetalPlayerView(coordinator: coordinator)
+                .play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/HDR10_ToneMapping_Test_240_1000_nits.mp4")!)
+                .onPropertyChange{ player, propertyName, propertyData in
+                    switch propertyName {
+                    case MPVProperty.pausedForCache:
+                        loading = propertyData as! Bool
+                    default: break
+                    }
                 }
         }
-    }
-}
-
-struct SettingsView: View {
-    var body: some View {
-        NavigationView {
-            Form {
-                Section("About") {
+        .overlay {
+            VStack {
+                Spacer()
+                ScrollView(.horizontal) {
                     HStack {
-                        Text("Version")
-                        Spacer()
-                        Text("1.0.0")
-                            .foregroundColor(.secondary)
+                        Button {
+                            coordinator.play(URL(string: "https://vjs.zencdn.net/v/oceans.mp4")!)
+                        } label: {
+                            Text("h264").frame(width: 130, height: 100)
+                        }
+                        Button {
+                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/h265.mp4")!)
+                        } label: {
+                            Text("h265").frame(width: 130, height: 100)
+                        }
+                        Button {
+                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/pgs_subtitle.mkv")!)
+                        } label: {
+                            Text("subtitle").frame(width: 130, height: 100)
+                        }
+                        Button {
+                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/hdr.mkv")!)
+                        } label: {
+                            Text("HDR").frame(width: 130, height: 100)
+                        }
+                        Button {
+                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/DolbyVision_P5.mp4")!)
+                        } label: {
+                            Text("DV_P5").frame(width: 130, height: 100)
+                        }
+                        Button {
+                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/DolbyVision_P8.mp4")!)
+                        } label: {
+                            Text("DV_P8").frame(width: 130, height: 100)
+                        }
                     }
-                    
-                    HStack {
-                        Text("Build")
-                        Spacer()
-                        Text("1")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Section("Playback") {
-                    HStack {
-                        Text("Default Volume")
-                        Spacer()
-                        Text("100%")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    Toggle("Auto-play next", isOn: .constant(true))
-                    Toggle("Remember playback position", isOn: .constant(true))
                 }
             }
-            .navigationTitle("Settings")
+        }
+        .overlay(overlayView)
+        .preferredColorScheme(.dark)
+    }
+    
+    @ViewBuilder
+    private var overlayView: some View {
+        if loading {
+            ProgressView()
+        } else {
+            EmptyView()
         }
     }
-}
-
-#Preview {
-    ContentView()
 }

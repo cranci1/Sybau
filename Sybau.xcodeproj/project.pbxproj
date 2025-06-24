@@ -8,28 +8,30 @@
 
 /* Begin PBXBuildFile section */
 		1366A6532E0AA49A00542294 /* MPVKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1366A6522E0AA49A00542294 /* MPVKit */; };
-		1366A65E2E0AA57B00542294 /* MediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6552E0AA57B00542294 /* MediaItem.swift */; };
-		1366A65F2E0AA57B00542294 /* MediaLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6562E0AA57B00542294 /* MediaLibrary.swift */; };
-		1366A6602E0AA57B00542294 /* MediaLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6582E0AA57B00542294 /* MediaLibraryView.swift */; };
-		1366A6612E0AA57B00542294 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6592E0AA57B00542294 /* VideoPlayerView.swift */; };
-		1366A6622E0AA57B00542294 /* VideoPlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A65B2E0AA57B00542294 /* VideoPlayerViewController.swift */; };
-		1366A6632E0AA57B00542294 /* MPVPlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A65D2E0AA57B00542294 /* MPVPlayerEngine.swift */; };
+		1366A66F2E0AADC500542294 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6642E0AADC400542294 /* ContentView.swift */; };
+		1366A6702E0AADC500542294 /* MPVMetalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6672E0AADC500542294 /* MPVMetalViewController.swift */; };
+		1366A6712E0AADC500542294 /* MetalLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6682E0AADC500542294 /* MetalLayer.swift */; };
+		1366A6722E0AADC500542294 /* MPVMetalPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6692E0AADC500542294 /* MPVMetalPlayerView.swift */; };
+		1366A6732E0AADC500542294 /* MPVProperty.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A66A2E0AADC500542294 /* MPVProperty.swift */; };
+		1366A6742E0AADC500542294 /* MPVPlayerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A66B2E0AADC500542294 /* MPVPlayerDelegate.swift */; };
+		1366A6752E0AADC500542294 /* MPVViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A66D2E0AADC500542294 /* MPVViewController.swift */; };
+		1366A6762E0AADC500542294 /* MPVPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A66E2E0AADC500542294 /* MPVPlayerView.swift */; };
 		13C5AADC2E087EDF00B8FDA5 /* SybauApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */; };
-		13C5AADE2E087EDF00B8FDA5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C5AADD2E087EDF00B8FDA5 /* ContentView.swift */; };
 		13C5AAE02E087EE400B8FDA5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */; };
 		13C5AAE42E087EE400B8FDA5 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13C5AAE32E087EE400B8FDA5 /* Preview Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1366A6552E0AA57B00542294 /* MediaItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaItem.swift; sourceTree = "<group>"; };
-		1366A6562E0AA57B00542294 /* MediaLibrary.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaLibrary.swift; sourceTree = "<group>"; };
-		1366A6582E0AA57B00542294 /* MediaLibraryView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaLibraryView.swift; sourceTree = "<group>"; };
-		1366A6592E0AA57B00542294 /* VideoPlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
-		1366A65B2E0AA57B00542294 /* VideoPlayerViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoPlayerViewController.swift; sourceTree = "<group>"; };
-		1366A65D2E0AA57B00542294 /* MPVPlayerEngine.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVPlayerEngine.swift; sourceTree = "<group>"; };
+		1366A6642E0AADC400542294 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		1366A6672E0AADC500542294 /* MPVMetalViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVMetalViewController.swift; sourceTree = "<group>"; };
+		1366A6682E0AADC500542294 /* MetalLayer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalLayer.swift; sourceTree = "<group>"; };
+		1366A6692E0AADC500542294 /* MPVMetalPlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVMetalPlayerView.swift; sourceTree = "<group>"; };
+		1366A66A2E0AADC500542294 /* MPVProperty.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVProperty.swift; sourceTree = "<group>"; };
+		1366A66B2E0AADC500542294 /* MPVPlayerDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVPlayerDelegate.swift; sourceTree = "<group>"; };
+		1366A66D2E0AADC500542294 /* MPVViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVViewController.swift; sourceTree = "<group>"; };
+		1366A66E2E0AADC500542294 /* MPVPlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVPlayerView.swift; sourceTree = "<group>"; };
 		13C5AAD82E087EDF00B8FDA5 /* Sybau.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sybau.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SybauApp.swift; sourceTree = "<group>"; };
-		13C5AADD2E087EDF00B8FDA5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		13C5AAE12E087EE400B8FDA5 /* Sybau.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Sybau.entitlements; sourceTree = "<group>"; };
 		13C5AAE32E087EE400B8FDA5 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
@@ -47,38 +49,34 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		1366A6542E0AA57B00542294 /* Models */ = {
+		1366A6652E0AADC500542294 /* Player */ = {
 			isa = PBXGroup;
 			children = (
-				1366A6552E0AA57B00542294 /* MediaItem.swift */,
-				1366A6562E0AA57B00542294 /* MediaLibrary.swift */,
+				1366A66C2E0AADC500542294 /* OpenGL */,
+				1366A6662E0AADC500542294 /* Metal */,
+				1366A66A2E0AADC500542294 /* MPVProperty.swift */,
+				1366A66B2E0AADC500542294 /* MPVPlayerDelegate.swift */,
 			);
-			path = Models;
+			path = Player;
 			sourceTree = "<group>";
 		};
-		1366A6572E0AA57B00542294 /* Views */ = {
+		1366A6662E0AADC500542294 /* Metal */ = {
 			isa = PBXGroup;
 			children = (
-				1366A6582E0AA57B00542294 /* MediaLibraryView.swift */,
-				1366A6592E0AA57B00542294 /* VideoPlayerView.swift */,
+				1366A6672E0AADC500542294 /* MPVMetalViewController.swift */,
+				1366A6682E0AADC500542294 /* MetalLayer.swift */,
+				1366A6692E0AADC500542294 /* MPVMetalPlayerView.swift */,
 			);
-			path = Views;
+			path = Metal;
 			sourceTree = "<group>";
 		};
-		1366A65A2E0AA57B00542294 /* Controllers */ = {
+		1366A66C2E0AADC500542294 /* OpenGL */ = {
 			isa = PBXGroup;
 			children = (
-				1366A65B2E0AA57B00542294 /* VideoPlayerViewController.swift */,
+				1366A66D2E0AADC500542294 /* MPVViewController.swift */,
+				1366A66E2E0AADC500542294 /* MPVPlayerView.swift */,
 			);
-			path = Controllers;
-			sourceTree = "<group>";
-		};
-		1366A65C2E0AA57B00542294 /* MPVKit */ = {
-			isa = PBXGroup;
-			children = (
-				1366A65D2E0AA57B00542294 /* MPVPlayerEngine.swift */,
-			);
-			path = MPVKit;
+			path = OpenGL;
 			sourceTree = "<group>";
 		};
 		13C5AACF2E087EDF00B8FDA5 = {
@@ -100,12 +98,9 @@
 		13C5AADA2E087EDF00B8FDA5 /* Sybau */ = {
 			isa = PBXGroup;
 			children = (
-				1366A65A2E0AA57B00542294 /* Controllers */,
-				1366A6542E0AA57B00542294 /* Models */,
-				1366A65C2E0AA57B00542294 /* MPVKit */,
-				1366A6572E0AA57B00542294 /* Views */,
+				1366A6652E0AADC500542294 /* Player */,
 				13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */,
-				13C5AADD2E087EDF00B8FDA5 /* ContentView.swift */,
+				1366A6642E0AADC400542294 /* ContentView.swift */,
 				13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */,
 				13C5AAE12E087EE400B8FDA5 /* Sybau.entitlements */,
 				13C5AAE22E087EE400B8FDA5 /* Preview Content */,
@@ -197,14 +192,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1366A6602E0AA57B00542294 /* MediaLibraryView.swift in Sources */,
-				13C5AADE2E087EDF00B8FDA5 /* ContentView.swift in Sources */,
+				1366A6702E0AADC500542294 /* MPVMetalViewController.swift in Sources */,
+				1366A66F2E0AADC500542294 /* ContentView.swift in Sources */,
+				1366A6732E0AADC500542294 /* MPVProperty.swift in Sources */,
+				1366A6742E0AADC500542294 /* MPVPlayerDelegate.swift in Sources */,
+				1366A6752E0AADC500542294 /* MPVViewController.swift in Sources */,
+				1366A6762E0AADC500542294 /* MPVPlayerView.swift in Sources */,
 				13C5AADC2E087EDF00B8FDA5 /* SybauApp.swift in Sources */,
-				1366A6622E0AA57B00542294 /* VideoPlayerViewController.swift in Sources */,
-				1366A65F2E0AA57B00542294 /* MediaLibrary.swift in Sources */,
-				1366A65E2E0AA57B00542294 /* MediaItem.swift in Sources */,
-				1366A6632E0AA57B00542294 /* MPVPlayerEngine.swift in Sources */,
-				1366A6612E0AA57B00542294 /* VideoPlayerView.swift in Sources */,
+				1366A6712E0AADC500542294 /* MetalLayer.swift in Sources */,
+				1366A6722E0AADC500542294 /* MPVMetalPlayerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
