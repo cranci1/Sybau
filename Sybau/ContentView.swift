@@ -3,69 +3,87 @@ import SwiftUI
 struct ContentView: View {
     @ObservedObject var coordinator = MPVMetalPlayerView.Coordinator()
     @State var loading = false
-    
+    @State private var showPlaylist = false
     
     var body: some View {
-        VStack {
-            MPVMetalPlayerView(coordinator: coordinator)
-                .play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/HDR10_ToneMapping_Test_240_1000_nits.mp4")!)
-                .onPropertyChange{ player, propertyName, propertyData in
-                    switch propertyName {
-                    case MPVProperty.pausedForCache:
-                        loading = propertyData as! Bool
-                    default: break
+        GeometryReader { geometry in
+            ZStack {
+                MPVMetalPlayerView(coordinator: coordinator)
+                    .play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/HDR10_ToneMapping_Test_240_1000_nits.mp4")!)
+                    .onPropertyChange { player, propertyName, propertyData in
+                        switch propertyName {
+                        case MPVProperty.pausedForCache:
+                            loading = propertyData as! Bool
+                        default: break
+                        }
                     }
+                    .edgesIgnoringSafeArea(.all)
+                
+                if loading {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        .scaleEffect(1.5)
                 }
-        }
-        .overlay {
-            VStack {
-                Spacer()
-                ScrollView(.horizontal) {
+                
+                VStack {
                     HStack {
-                        Button {
-                            coordinator.play(URL(string: "https://vjs.zencdn.net/v/oceans.mp4")!)
-                        } label: {
-                            Text("h264").frame(width: 130, height: 100)
+                        Button(action: { showPlaylist.toggle() }) {
+                            Image(systemName: "list.bullet")
+                                .foregroundColor(.white)
+                                .font(.title2)
+                                .padding()
                         }
-                        Button {
-                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/h265.mp4")!)
-                        } label: {
-                            Text("h265").frame(width: 130, height: 100)
-                        }
-                        Button {
-                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/pgs_subtitle.mkv")!)
-                        } label: {
-                            Text("subtitle").frame(width: 130, height: 100)
-                        }
-                        Button {
-                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/hdr.mkv")!)
-                        } label: {
-                            Text("HDR").frame(width: 130, height: 100)
-                        }
-                        Button {
-                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/DolbyVision_P5.mp4")!)
-                        } label: {
-                            Text("DV_P5").frame(width: 130, height: 100)
-                        }
-                        Button {
-                            coordinator.play(URL(string: "https://github.com/mpvkit/video-test/raw/master/resources/DolbyVision_P8.mp4")!)
-                        } label: {
-                            Text("DV_P8").frame(width: 130, height: 100)
-                        }
+                        Spacer()
                     }
+                    .background(LinearGradient(
+                        gradient: Gradient(colors: [Color.black.opacity(0.7), .clear]),
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ))
+                    
+                    Spacer()
+                    MediaControlsView(coordinator: coordinator)
+                }
+                
+                if showPlaylist {
+                    playlistView
+                        .transition(.move(edge: .leading))
                 }
             }
+            .preferredColorScheme(.dark)
         }
-        .overlay(overlayView)
-        .preferredColorScheme(.dark)
     }
     
-    @ViewBuilder
-    private var overlayView: some View {
-        if loading {
-            ProgressView()
-        } else {
-            EmptyView()
+    private var playlistView: some View {
+        VStack {
+            ScrollView {
+                VStack(spacing: 10) {
+                    playlistButton(title: "H.264 Sample", url: "https://vjs.zencdn.net/v/oceans.mp4")
+                    playlistButton(title: "H.265 Sample", url: "https://github.com/mpvkit/video-test/raw/master/resources/h265.mp4")
+                    playlistButton(title: "Subtitled Video", url: "https://github.com/mpvkit/video-test/raw/master/resources/pgs_subtitle.mkv")
+                    playlistButton(title: "HDR Sample", url: "https://github.com/mpvkit/video-test/raw/master/resources/hdr.mkv")
+                    playlistButton(title: "Dolby Vision P5", url: "https://github.com/mpvkit/video-test/raw/master/resources/DolbyVision_P5.mp4")
+                    playlistButton(title: "Dolby Vision P8", url: "https://github.com/mpvkit/video-test/raw/master/resources/DolbyVision_P8.mp4")
+                }
+                .padding()
+            }
+        }
+        .frame(width: 250)
+        .background(Color.black.opacity(0.8))
+        .animation(.easeInOut, value: showPlaylist)
+    }
+    
+    private func playlistButton(title: String, url: String) -> some View {
+        Button {
+            coordinator.play(URL(string: url)!)
+            showPlaylist = false
+        } label: {
+            Text(title)
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(Color.white.opacity(0.1))
+                .cornerRadius(8)
         }
     }
 }

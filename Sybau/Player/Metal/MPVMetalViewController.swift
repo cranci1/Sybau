@@ -12,6 +12,21 @@ final class MPVMetalViewController: UIViewController {
     lazy var queue = DispatchQueue(label: "mpv", qos: .userInitiated)
     
     var playUrl: URL?
+    
+    var currentTime: Double {
+        getDouble(MPVProperty.timePos)
+    }
+    
+    var duration: Double {
+        getDouble(MPVProperty.duration)
+    }
+    
+    func seek(to time: Double) {
+        guard mpv != nil else { return }
+        var data = time
+        mpv_set_property(mpv, MPVProperty.timePos, MPV_FORMAT_DOUBLE, &data)
+    }
+    
     var hdrAvailable: Bool {
         if #available(iOS 16.0, *) {
             let maxEDRRange = view.window?.screen.potentialEDRHeadroom ?? 1.0

@@ -37,14 +37,57 @@ struct MPVMetalPlayerView: UIViewControllerRepresentable {
         var playUrl : URL?
         var onPropertyChange: ((MPVMetalViewController, String, Any?) -> Void)?
         
+        @Published var currentTime: Double = 0
+        @Published var duration: Double = 0
+        @Published var isPlaying: Bool = true
+        
+        private var timeObserverTimer: Timer?
+        
         func play(_ url: URL) {
             player?.loadFile(url)
+            setupTimeObserver()
+        }
+        
+        func play() {
+            player?.play()
+            isPlaying = true
+        }
+        
+        func pause() {
+            player?.pause()
+            isPlaying = false
+        }
+        
+        func seek(to time: Double) {
+            player?.seek(to: time)
+        }
+        
+        func seek(by offset: Double) {
+            if let currentTime = player?.currentTime {
+                seek(to: currentTime + offset)
+            }
+        }
+        
+        private func setupTimeObserver() {
+            timeObserverTimer?.invalidate()
+            timeObserverTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+                guard let self = self, let player = self.player else { return }
+                self.currentTime = player.currentTime
+                self.duration = player.duration
+            }
         }
         
         func propertyChange(mpv: OpaquePointer, propertyName: String, data: Any?) {
             guard let player else { return }
             
-            self.onPropertyChange?(player, propertyName, data)
+            switch propertyName {
+            case MPVProperty.pause:
+                if let paused = data as? Bool {
+                    isPlaying = !paused
+                }
+            default:
+                self.onPropertyChange?(player, propertyName, data)
+            }
         }
     }
 }

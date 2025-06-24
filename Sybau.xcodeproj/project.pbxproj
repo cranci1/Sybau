@@ -16,6 +16,7 @@
 		1366A6742E0AADC500542294 /* MPVPlayerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A66B2E0AADC500542294 /* MPVPlayerDelegate.swift */; };
 		1366A6752E0AADC500542294 /* MPVViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A66D2E0AADC500542294 /* MPVViewController.swift */; };
 		1366A6762E0AADC500542294 /* MPVPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A66E2E0AADC500542294 /* MPVPlayerView.swift */; };
+		1366A6792E0AB1F200542294 /* MediaControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6782E0AB1F200542294 /* MediaControlsView.swift */; };
 		13C5AADC2E087EDF00B8FDA5 /* SybauApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */; };
 		13C5AAE02E087EE400B8FDA5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */; };
 		13C5AAE42E087EE400B8FDA5 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13C5AAE32E087EE400B8FDA5 /* Preview Assets.xcassets */; };
@@ -30,6 +31,7 @@
 		1366A66B2E0AADC500542294 /* MPVPlayerDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVPlayerDelegate.swift; sourceTree = "<group>"; };
 		1366A66D2E0AADC500542294 /* MPVViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVViewController.swift; sourceTree = "<group>"; };
 		1366A66E2E0AADC500542294 /* MPVPlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVPlayerView.swift; sourceTree = "<group>"; };
+		1366A6782E0AB1F200542294 /* MediaControlsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaControlsView.swift; sourceTree = "<group>"; };
 		13C5AAD82E087EDF00B8FDA5 /* Sybau.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sybau.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SybauApp.swift; sourceTree = "<group>"; };
 		13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -52,6 +54,7 @@
 		1366A6652E0AADC500542294 /* Player */ = {
 			isa = PBXGroup;
 			children = (
+				1366A6772E0AB1F200542294 /* Controls */,
 				1366A66C2E0AADC500542294 /* OpenGL */,
 				1366A6662E0AADC500542294 /* Metal */,
 				1366A66A2E0AADC500542294 /* MPVProperty.swift */,
@@ -63,8 +66,8 @@
 		1366A6662E0AADC500542294 /* Metal */ = {
 			isa = PBXGroup;
 			children = (
-				1366A6672E0AADC500542294 /* MPVMetalViewController.swift */,
 				1366A6682E0AADC500542294 /* MetalLayer.swift */,
+				1366A6672E0AADC500542294 /* MPVMetalViewController.swift */,
 				1366A6692E0AADC500542294 /* MPVMetalPlayerView.swift */,
 			);
 			path = Metal;
@@ -77,6 +80,14 @@
 				1366A66E2E0AADC500542294 /* MPVPlayerView.swift */,
 			);
 			path = OpenGL;
+			sourceTree = "<group>";
+		};
+		1366A6772E0AB1F200542294 /* Controls */ = {
+			isa = PBXGroup;
+			children = (
+				1366A6782E0AB1F200542294 /* MediaControlsView.swift */,
+			);
+			path = Controls;
 			sourceTree = "<group>";
 		};
 		13C5AACF2E087EDF00B8FDA5 = {
@@ -195,6 +206,7 @@
 				1366A6702E0AADC500542294 /* MPVMetalViewController.swift in Sources */,
 				1366A66F2E0AADC500542294 /* ContentView.swift in Sources */,
 				1366A6732E0AADC500542294 /* MPVProperty.swift in Sources */,
+				1366A6792E0AB1F200542294 /* MediaControlsView.swift in Sources */,
 				1366A6742E0AADC500542294 /* MPVPlayerDelegate.swift in Sources */,
 				1366A6752E0AADC500542294 /* MPVViewController.swift in Sources */,
 				1366A6762E0AADC500542294 /* MPVPlayerView.swift in Sources */,
