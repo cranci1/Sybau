@@ -13,6 +13,9 @@ struct MediaLibraryView: View {
     @State private var selectedMediaItem: MediaItem?
     @State private var showingVideoPicker = false
     @State private var showingVideoPlayer = false
+    @State private var showingURLInput = false
+    @State private var urlInput = ""
+    @State private var showingURLError = false
     @State private var searchText = ""
     @State private var sortOrder: SortOrder = .title
     @State private var filterType: MediaFilter = .all
@@ -156,6 +159,10 @@ struct MediaLibraryView: View {
                         Button("Add Files") {
                             showingVideoPicker = true
                         }
+                        
+                        Button("Open URL...") {
+                            showingURLInput = true
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -195,6 +202,25 @@ struct MediaLibraryView: View {
             if mediaLibrary.mediaItems.isEmpty && !mediaLibrary.isScanning {
                 mediaLibrary.scanForMedia()
             }
+        }
+        .alert("Enter Media URL", isPresented: $showingURLInput) {
+            TextField("URL", text: $urlInput)
+            Button("Cancel", role: .cancel) {
+                urlInput = ""
+            }
+            Button("Open") {
+                if let url = URL(string: urlInput), UIApplication.shared.canOpenURL(url) {
+                    mediaLibrary.addMediaItem(from: url)
+                    urlInput = ""
+                } else {
+                    showingURLError = true
+                }
+            }
+        }
+        .alert("Invalid URL", isPresented: $showingURLError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Please enter a valid media URL")
         }
     }
 }

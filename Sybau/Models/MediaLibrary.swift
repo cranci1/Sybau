@@ -65,6 +65,17 @@ class MediaLibrary: ObservableObject {
         isScanning = false
     }
     
+    @MainActor
+    func addMediaItem(from url: URL) {
+        Task {
+            let mediaItem = await createMediaItem(from: url)
+            if !mediaItems.contains(where: { $0.url == url }) {
+                mediaItems.append(mediaItem)
+                mediaItems.sort { $0.displayTitle < $1.displayTitle }
+            }
+        }
+    }
+    
     private func createMediaItem(from url: URL) async -> MediaItem {
         var title = url.deletingPathExtension().lastPathComponent
         var duration: TimeInterval?
@@ -122,15 +133,5 @@ class MediaLibrary: ObservableObject {
             fileSize: fileSize,
             lastModified: lastModified
         )
-    }
-    
-    func addMediaItem(from url: URL) {
-        Task {
-            let mediaItem = await createMediaItem(from: url)
-            await MainActor.run {
-                mediaItems.append(mediaItem)
-                mediaItems.sort { $0.displayTitle < $1.displayTitle }
-            }
-        }
     }
 }
