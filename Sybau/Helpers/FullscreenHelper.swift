@@ -10,11 +10,16 @@ import UIKit
 
 extension UIApplication {
     static func setOrientation(_ orientation: UIInterfaceOrientation, isPortrait: Bool) {
-        if let window = UIApplication.shared.windows.first {
+        if #available(iOS 16.0, *) {
+            if let window = UIApplication.shared.windows.first {
+                let value = orientation.rawValue
+                UIDevice.current.setValue(value, forKey: "orientation")
+                window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            }
+        } else {
             let value = orientation.rawValue
             UIDevice.current.setValue(value, forKey: "orientation")
-            
-            window.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            UIViewController.attemptRotationToDeviceOrientation()
         }
     }
 }
