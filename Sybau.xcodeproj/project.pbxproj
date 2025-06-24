@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1366A6532E0AA49A00542294 /* MPVKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1366A6522E0AA49A00542294 /* MPVKit */; };
+		1366A65E2E0AA57B00542294 /* MediaItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6552E0AA57B00542294 /* MediaItem.swift */; };
+		1366A65F2E0AA57B00542294 /* MediaLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6562E0AA57B00542294 /* MediaLibrary.swift */; };
+		1366A6602E0AA57B00542294 /* MediaLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6582E0AA57B00542294 /* MediaLibraryView.swift */; };
+		1366A6612E0AA57B00542294 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6592E0AA57B00542294 /* VideoPlayerView.swift */; };
+		1366A6622E0AA57B00542294 /* VideoPlayerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A65B2E0AA57B00542294 /* VideoPlayerViewController.swift */; };
+		1366A6632E0AA57B00542294 /* MPVPlayerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A65D2E0AA57B00542294 /* MPVPlayerEngine.swift */; };
 		13C5AADC2E087EDF00B8FDA5 /* SybauApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */; };
 		13C5AADE2E087EDF00B8FDA5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13C5AADD2E087EDF00B8FDA5 /* ContentView.swift */; };
 		13C5AAE02E087EE400B8FDA5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */; };
@@ -14,6 +21,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		1366A6552E0AA57B00542294 /* MediaItem.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaItem.swift; sourceTree = "<group>"; };
+		1366A6562E0AA57B00542294 /* MediaLibrary.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaLibrary.swift; sourceTree = "<group>"; };
+		1366A6582E0AA57B00542294 /* MediaLibraryView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MediaLibraryView.swift; sourceTree = "<group>"; };
+		1366A6592E0AA57B00542294 /* VideoPlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		1366A65B2E0AA57B00542294 /* VideoPlayerViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoPlayerViewController.swift; sourceTree = "<group>"; };
+		1366A65D2E0AA57B00542294 /* MPVPlayerEngine.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVPlayerEngine.swift; sourceTree = "<group>"; };
 		13C5AAD82E087EDF00B8FDA5 /* Sybau.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sybau.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SybauApp.swift; sourceTree = "<group>"; };
 		13C5AADD2E087EDF00B8FDA5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -27,12 +40,47 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1366A6532E0AA49A00542294 /* MPVKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1366A6542E0AA57B00542294 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				1366A6552E0AA57B00542294 /* MediaItem.swift */,
+				1366A6562E0AA57B00542294 /* MediaLibrary.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		1366A6572E0AA57B00542294 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				1366A6582E0AA57B00542294 /* MediaLibraryView.swift */,
+				1366A6592E0AA57B00542294 /* VideoPlayerView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		1366A65A2E0AA57B00542294 /* Controllers */ = {
+			isa = PBXGroup;
+			children = (
+				1366A65B2E0AA57B00542294 /* VideoPlayerViewController.swift */,
+			);
+			path = Controllers;
+			sourceTree = "<group>";
+		};
+		1366A65C2E0AA57B00542294 /* MPVKit */ = {
+			isa = PBXGroup;
+			children = (
+				1366A65D2E0AA57B00542294 /* MPVPlayerEngine.swift */,
+			);
+			path = MPVKit;
+			sourceTree = "<group>";
+		};
 		13C5AACF2E087EDF00B8FDA5 = {
 			isa = PBXGroup;
 			children = (
@@ -52,6 +100,10 @@
 		13C5AADA2E087EDF00B8FDA5 /* Sybau */ = {
 			isa = PBXGroup;
 			children = (
+				1366A65A2E0AA57B00542294 /* Controllers */,
+				1366A6542E0AA57B00542294 /* Models */,
+				1366A65C2E0AA57B00542294 /* MPVKit */,
+				1366A6572E0AA57B00542294 /* Views */,
 				13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */,
 				13C5AADD2E087EDF00B8FDA5 /* ContentView.swift */,
 				13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */,
@@ -85,6 +137,9 @@
 			dependencies = (
 			);
 			name = Sybau;
+			packageProductDependencies = (
+				1366A6522E0AA49A00542294 /* MPVKit */,
+			);
 			productName = Sybau;
 			productReference = 13C5AAD82E087EDF00B8FDA5 /* Sybau.app */;
 			productType = "com.apple.product-type.application";
@@ -113,6 +168,9 @@
 				Base,
 			);
 			mainGroup = 13C5AACF2E087EDF00B8FDA5;
+			packageReferences = (
+				1366A6512E0AA49A00542294 /* XCRemoteSwiftPackageReference "MPVKit" */,
+			);
 			productRefGroup = 13C5AAD92E087EDF00B8FDA5 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -139,8 +197,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1366A6602E0AA57B00542294 /* MediaLibraryView.swift in Sources */,
 				13C5AADE2E087EDF00B8FDA5 /* ContentView.swift in Sources */,
 				13C5AADC2E087EDF00B8FDA5 /* SybauApp.swift in Sources */,
+				1366A6622E0AA57B00542294 /* VideoPlayerViewController.swift in Sources */,
+				1366A65F2E0AA57B00542294 /* MediaLibrary.swift in Sources */,
+				1366A65E2E0AA57B00542294 /* MediaItem.swift in Sources */,
+				1366A6632E0AA57B00542294 /* MPVPlayerEngine.swift in Sources */,
+				1366A6612E0AA57B00542294 /* VideoPlayerView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -363,6 +427,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		1366A6512E0AA49A00542294 /* XCRemoteSwiftPackageReference "MPVKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/mpvkit/MPVKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.40.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1366A6522E0AA49A00542294 /* MPVKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 1366A6512E0AA49A00542294 /* XCRemoteSwiftPackageReference "MPVKit" */;
+			productName = MPVKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 13C5AAD02E087EDF00B8FDA5 /* Project object */;
 }

@@ -9,13 +9,54 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            MediaLibraryView()
+                .tabItem {
+                    Label("Library", systemImage: "tv")
+                }
+            
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
         }
-        .padding()
+    }
+}
+
+struct SettingsView: View {
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("About") {
+                    HStack {
+                        Text("Version")
+                        Spacer()
+                        Text("1.0.0")
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    HStack {
+                        Text("Build")
+                        Spacer()
+                        Text("1")
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
+                Section("Playback") {
+                    HStack {
+                        Text("Default Volume")
+                        Spacer()
+                        Text("100%")
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Toggle("Auto-play next", isOn: .constant(true))
+                    Toggle("Remember playback position", isOn: .constant(true))
+                }
+            }
+            .navigationTitle("Settings")
+        }
     }
 }
 
