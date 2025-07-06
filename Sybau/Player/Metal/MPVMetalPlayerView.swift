@@ -5,11 +5,17 @@ struct MPVMetalPlayerView: UIViewControllerRepresentable {
     @ObservedObject var coordinator: Coordinator
     
     func makeUIViewController(context: Context) -> some UIViewController {
-        let mpv =  MPVMetalViewController()
+        let mpv = MPVMetalViewController()
         mpv.playDelegate = coordinator
         mpv.playUrl = coordinator.playUrl
         
         context.coordinator.player = mpv
+        
+        // If there's a URL to play, load it
+        if let url = coordinator.playUrl {
+            mpv.loadFile(url)
+        }
+        
         return mpv
     }
     
@@ -44,6 +50,7 @@ struct MPVMetalPlayerView: UIViewControllerRepresentable {
         private var timeObserverTimer: Timer?
         
         func play(_ url: URL) {
+            playUrl = url
             player?.loadFile(url)
             setupTimeObserver()
         }

@@ -97,7 +97,12 @@ final class MPVMetalViewController: UIViewController {
         checkError(mpv_set_option_string(mpv, "gpu-api", "vulkan"))
         checkError(mpv_set_option_string(mpv, "hwdec", "videotoolbox"))
         checkError(mpv_set_option_string(mpv, "video-rotate", "no"))
-        checkError(mpv_set_option_string(mpv, "ytdl", "no"))
+        checkError(mpv_set_option_string(mpv, "ytdl", "yes"))
+        checkError(mpv_set_option_string(mpv, "ytdl-format", "best"))
+        checkError(mpv_set_option_string(mpv, "network-timeout", "30"))
+        checkError(mpv_set_option_string(mpv, "cache", "yes"))
+        checkError(mpv_set_option_string(mpv, "cache-secs", "60"))
+        checkError(mpv_set_option_string(mpv, "user-agent", "Sybau/1.0"))
 //        checkError(mpv_set_option_string(mpv, "target-colorspace-hint", "yes")) // HDR passthrough
 //        checkError(mpv_set_option_string(mpv, "tone-mapping-visualize", "yes"))  // only for debugging purposes
 //        checkError(mpv_set_option_string(mpv, "profile", "fast"))   // can fix frame drop in poor device when play 4k
@@ -107,6 +112,9 @@ final class MPVMetalViewController: UIViewController {
         
         mpv_observe_property(mpv, 0, MPVProperty.videoParamsSigPeak, MPV_FORMAT_DOUBLE)
         mpv_observe_property(mpv, 0, MPVProperty.pausedForCache, MPV_FORMAT_FLAG)
+        mpv_observe_property(mpv, 0, MPVProperty.pause, MPV_FORMAT_FLAG)
+        mpv_observe_property(mpv, 0, "core-idle", MPV_FORMAT_FLAG)
+        mpv_observe_property(mpv, 0, "eof-reached", MPV_FORMAT_FLAG)
         mpv_set_wakeup_callback(self.mpv, { (ctx) in
             let client = unsafeBitCast(ctx, to: MPVMetalViewController.self)
             client.readEvents()
@@ -117,13 +125,16 @@ final class MPVMetalViewController: UIViewController {
     func loadFile(
         _ url: URL
     ) {
-        var args = [url.absoluteString]
-        var options = [String]()
+        print("Loading file: \(url.absoluteString)")
         
-        args.append("replace")
+        var args = [url.absoluteString, "replace"]
         
-        if !options.isEmpty {
-            args.append(options.joined(separator: ","))
+        // Add specific options for streaming
+        if url.scheme == "http" || url.scheme == "https" {
+            // Use separate commands for options
+            command("set", args: ["cache", "yes"])
+            command("set", args: ["cache-secs", "60"])
+            command("set", args: ["network-timeout", "30"])
         }
         
         command("loadfile", args: args)
@@ -227,9 +238,29 @@ final class MPVMetalViewController: UIViewController {
                             DispatchQueue.main.async {
                                 self.playDelegate?.propertyChange(mpv: self.mpv, propertyName: propertyName, data: buffering)
                             }
+                        case MPVProperty.pause:
+                            let paused = UnsafePointer<Bool>(OpaquePointer(property.data))?.pointee ?? false
+                            DispatchQueue.main.async {
+                                self.playDelegate?.propertyChange(mpv: self.mpv, propertyName: propertyName, data: paused)
+                            }
+                        case "core-idle":
+                            let idle = UnsafePointer<Bool>(OpaquePointer(property.data))?.pointee ?? false
+                            print("Core idle: \(idle)")
+                        case "eof-reached":
+                            let eof = UnsafePointer<Bool>(OpaquePointer(property.data))?.pointee ?? false
+                            print("EOF reached: \(eof)")
                         default: break
                         }
                     }
+                case MPV_EVENT_FILE_LOADED:
+                    print("File loaded successfully")
+                case MPV_EVENT_START_FILE:
+                    print("Starting file playback")
+                case MPV_EVENT_END_FILE:
+                    let reason = UnsafePointer<mpv_event_end_file>(OpaquePointer(event!.pointee.data))?.pointee.reason
+                    print("End file with reason: \(reason?.rawValue ?? 0)")
+                case MPV_EVENT_PLAYBACK_RESTART:
+                    print("Playback restart")
                 case MPV_EVENT_SHUTDOWN:
                     print("event: shutdown\n");
                     mpv_terminate_destroy(mpv);

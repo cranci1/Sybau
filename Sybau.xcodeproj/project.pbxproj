@@ -7,8 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		132FE1122E19731D00E66E99 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1112E19731D00E66E99 /* MainTabView.swift */; };
+		132FE1152E19732100E66E99 /* DataModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1142E19732100E66E99 /* DataModels.swift */; };
+		132FE1172E19737800E66E99 /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1162E19737800E66E99 /* FilesView.swift */; };
+		132FE1192E1973C300E66E99 /* StreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1182E1973C300E66E99 /* StreamView.swift */; };
+		132FE11B2E19745600E66E99 /* PlaylistsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE11A2E19745600E66E99 /* PlaylistsView.swift */; };
+		132FE11D2E19747600E66E99 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE11C2E19747500E66E99 /* SettingsView.swift */; };
+		132FE11F2E19747B00E66E99 /* DataManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE11E2E19747B00E66E99 /* DataManager.swift */; };
+		132FE1212E1974A500E66E99 /* PlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1202E1974A500E66E99 /* PlayerView.swift */; };
+		132FE1242E19750600E66E99 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1232E19750600E66E99 /* AppDelegate.swift */; };
+		132FE1282E19760000E66E99 /* iOS15Compatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1262E19760000E66E99 /* iOS15Compatibility.swift */; };
+		132FE1292E19760000E66E99 /* FullscreenHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 132FE1272E19760000E66E99 /* FullscreenHelper.swift */; };
 		1366A6532E0AA49A00542294 /* MPVKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1366A6522E0AA49A00542294 /* MPVKit */; };
-		1366A66F2E0AADC500542294 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6642E0AADC400542294 /* ContentView.swift */; };
 		1366A6702E0AADC500542294 /* MPVMetalViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6672E0AADC500542294 /* MPVMetalViewController.swift */; };
 		1366A6712E0AADC500542294 /* MetalLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6682E0AADC500542294 /* MetalLayer.swift */; };
 		1366A6722E0AADC500542294 /* MPVMetalPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1366A6692E0AADC500542294 /* MPVMetalPlayerView.swift */; };
@@ -25,7 +35,17 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		1366A6642E0AADC400542294 /* ContentView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		132FE1112E19731D00E66E99 /* MainTabView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		132FE1142E19732100E66E99 /* DataModels.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataModels.swift; sourceTree = "<group>"; };
+		132FE1162E19737800E66E99 /* FilesView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
+		132FE1182E1973C300E66E99 /* StreamView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = StreamView.swift; sourceTree = "<group>"; };
+		132FE11A2E19745600E66E99 /* PlaylistsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlaylistsView.swift; sourceTree = "<group>"; };
+		132FE11C2E19747500E66E99 /* SettingsView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		132FE11E2E19747B00E66E99 /* DataManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DataManager.swift; sourceTree = "<group>"; };
+		132FE1202E1974A500E66E99 /* PlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+		132FE1232E19750600E66E99 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		132FE1262E19760000E66E99 /* iOS15Compatibility.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = iOS15Compatibility.swift; sourceTree = "<group>"; };
+		132FE1272E19760000E66E99 /* FullscreenHelper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FullscreenHelper.swift; sourceTree = "<group>"; };
 		1366A6672E0AADC500542294 /* MPVMetalViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVMetalViewController.swift; sourceTree = "<group>"; };
 		1366A6682E0AADC500542294 /* MetalLayer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalLayer.swift; sourceTree = "<group>"; };
 		1366A6692E0AADC500542294 /* MPVMetalPlayerView.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MPVMetalPlayerView.swift; sourceTree = "<group>"; };
@@ -55,6 +75,45 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		132FE1102E19731D00E66E99 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				132FE1202E1974A500E66E99 /* PlayerView.swift */,
+				132FE11C2E19747500E66E99 /* SettingsView.swift */,
+				132FE11A2E19745600E66E99 /* PlaylistsView.swift */,
+				132FE1182E1973C300E66E99 /* StreamView.swift */,
+				132FE1162E19737800E66E99 /* FilesView.swift */,
+				132FE1112E19731D00E66E99 /* MainTabView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		132FE1132E19732100E66E99 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				132FE11E2E19747B00E66E99 /* DataManager.swift */,
+				132FE1142E19732100E66E99 /* DataModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		132FE1222E19750600E66E99 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				132FE1232E19750600E66E99 /* AppDelegate.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		132FE1252E19760000E66E99 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				132FE1262E19760000E66E99 /* iOS15Compatibility.swift */,
+				132FE1272E19760000E66E99 /* FullscreenHelper.swift */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
 		1366A6652E0AADC500542294 /* Player */ = {
 			isa = PBXGroup;
 			children = (
@@ -124,9 +183,12 @@
 		13C5AADA2E087EDF00B8FDA5 /* Sybau */ = {
 			isa = PBXGroup;
 			children = (
+				132FE1252E19760000E66E99 /* Helpers */,
+				132FE1222E19750600E66E99 /* App */,
+				132FE1132E19732100E66E99 /* Models */,
+				132FE1102E19731D00E66E99 /* Views */,
 				1366A6652E0AADC500542294 /* Player */,
 				13C5AADB2E087EDF00B8FDA5 /* SybauApp.swift */,
-				1366A6642E0AADC400542294 /* ContentView.swift */,
 				13C5AADF2E087EE400B8FDA5 /* Assets.xcassets */,
 				13C5AAE12E087EE400B8FDA5 /* Sybau.entitlements */,
 				13C5AAE22E087EE400B8FDA5 /* Preview Content */,
@@ -220,16 +282,26 @@
 			files = (
 				1366A67E2E0AB6E700542294 /* AppDelegate.swift in Sources */,
 				1366A6702E0AADC500542294 /* MPVMetalViewController.swift in Sources */,
-				1366A66F2E0AADC500542294 /* ContentView.swift in Sources */,
+				132FE1192E1973C300E66E99 /* StreamView.swift in Sources */,
+				132FE1212E1974A500E66E99 /* PlayerView.swift in Sources */,
+				132FE11D2E19747600E66E99 /* SettingsView.swift in Sources */,
 				1366A6732E0AADC500542294 /* MPVProperty.swift in Sources */,
+				132FE1292E19760000E66E99 /* FullscreenHelper.swift in Sources */,
 				1366A6792E0AB1F200542294 /* MediaControlsView.swift in Sources */,
+				132FE11B2E19745600E66E99 /* PlaylistsView.swift in Sources */,
 				1366A6742E0AADC500542294 /* MPVPlayerDelegate.swift in Sources */,
 				1366A6752E0AADC500542294 /* MPVViewController.swift in Sources */,
+				132FE1122E19731D00E66E99 /* MainTabView.swift in Sources */,
+				132FE1282E19760000E66E99 /* iOS15Compatibility.swift in Sources */,
 				1366A67C2E0AB57F00542294 /* FullscreenHelper.swift in Sources */,
 				1366A6762E0AADC500542294 /* MPVPlayerView.swift in Sources */,
 				13C5AADC2E087EDF00B8FDA5 /* SybauApp.swift in Sources */,
+				132FE11F2E19747B00E66E99 /* DataManager.swift in Sources */,
+				132FE1152E19732100E66E99 /* DataModels.swift in Sources */,
 				1366A6712E0AADC500542294 /* MetalLayer.swift in Sources */,
+				132FE1242E19750600E66E99 /* AppDelegate.swift in Sources */,
 				1366A6722E0AADC500542294 /* MPVMetalPlayerView.swift in Sources */,
+				132FE1172E19737800E66E99 /* FilesView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

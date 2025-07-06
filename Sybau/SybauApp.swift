@@ -13,7 +13,7 @@ struct SybauApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
         }
     }
 }
