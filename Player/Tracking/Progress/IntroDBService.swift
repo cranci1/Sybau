@@ -53,7 +53,7 @@ enum IntroDbSegment: String {
     }
 }
 
-struct IntroDBSegment {
+public struct IntroDBSegment {
     let db: IntroDbSegment
     let startSeconds: Double
     let endSeconds: Double?
@@ -83,7 +83,7 @@ struct IntroDBSegmentHighlight {
     let label: String
 }
 
-final class IntroDBService {
+public final class IntroDBService {
     static let shared = IntroDBService()
     
     private init() {}

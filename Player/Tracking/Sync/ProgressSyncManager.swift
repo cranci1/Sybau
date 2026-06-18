@@ -42,7 +42,7 @@ private struct ProviderSession: Codable {
 }
 
 @MainActor
-final class ProgressSyncManager: NSObject, ObservableObject {
+public final class ProgressSyncManager: NSObject, ObservableObject {
     static let shared = ProgressSyncManager()
 
     @Published private(set) var isTraktLoggedIn = false
@@ -754,7 +754,7 @@ enum SyncError: LocalizedError {
 
 #if os(iOS)
 extension ProgressSyncManager: ASWebAuthenticationPresentationContextProviding {
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+    public func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         if let activeScene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene,
            let window = activeScene.windows.first(where: { $0.isKeyWindow }) {
             return window

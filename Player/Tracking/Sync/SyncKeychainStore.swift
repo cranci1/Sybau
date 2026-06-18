@@ -8,7 +8,7 @@
 import Security
 import Foundation
 
-enum SyncKeychainStore {
+public enum SyncKeychainStore {
     private static let service = "me.cranci.mpv.sync"
     
     static func set(_ value: String, for key: String) {

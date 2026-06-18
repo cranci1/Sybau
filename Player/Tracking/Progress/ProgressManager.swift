@@ -10,7 +10,7 @@ import AVFoundation
 
 // MARK: - Data Models
 
-struct ProgressData: Codable {
+public struct ProgressData: Codable {
     var movieProgress: [MovieProgressEntry] = []
     var episodeProgress: [EpisodeProgressEntry] = []
     
@@ -79,7 +79,7 @@ struct EpisodeProgressEntry: Codable, Identifiable {
 
 // MARK: - ProgressManager
 
-final class ProgressManager {
+public final class ProgressManager {
     static let shared = ProgressManager()
     
     private let fileManager = FileManager.default
@@ -365,15 +365,15 @@ final class ProgressManager {
 
 // MARK: - MediaInfo Enum
 
-enum MediaInfo {
+public enum MediaInfo {
     case movie(id: Int, title: String)
     case episode(showId: Int, showTitle: String?, seasonNumber: Int, episodeNumber: Int)
 }
 
 // MARK: - Continue Watching Item
 
-struct ContinueWatchingItem: Identifiable {
-    let id: String
+public struct ContinueWatchingItem: Identifiable {
+    public let id: String
     let tmdbId: Int
     let title: String
     let isMovie: Bool
@@ -404,7 +404,7 @@ struct ContinueWatchingItem: Identifiable {
 // MARK: - ProgressManager Continue Watching Extension
 
 extension ProgressManager {
-    func getContinueWatchingItems(limit: Int = 10) -> [ContinueWatchingItem] {
+    public func getContinueWatchingItems(limit: Int = 10) -> [ContinueWatchingItem] {
         var items: [ContinueWatchingItem] = []
         
         accessQueue.sync {
