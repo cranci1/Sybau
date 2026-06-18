@@ -1,17 +1,29 @@
 import Foundation
 
 public struct PlayerPreset: Hashable {
-    struct Stream: Hashable {
-        let url: URL
-        let note: String
+    public struct Stream: Hashable {
+        public let url: URL
+        public let note: String
+        
+        public init(url: URL, note: String) {
+            self.url = url
+            self.note = note
+        }
     }
     
-    let title: String
-    let summary: String
-    let stream: Stream?
-    let commands: [[String]]
+    public let title: String
+    public let summary: String
+    public let stream: Stream?
+    public let commands: [[String]]
     
-    static var presets: [PlayerPreset] {
+    public init(title: String, summary: String, stream: Stream?, commands: [[String]]) {
+        self.title = title
+        self.summary = summary
+        self.stream = stream
+        self.commands = commands
+    }
+    
+    public static var presets: [PlayerPreset] {
         let list: [PlayerPreset] = []
         return list
     }

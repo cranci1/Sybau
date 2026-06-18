@@ -8,8 +8,8 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "Player",
-            targets: ["Player"]
+            name: "Sybau",
+            targets: ["Sybau"]
         ),
     ],
     dependencies: [
@@ -20,7 +20,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "Player",
+            name: "Sybau",
             dependencies: [
                 .product(name: "MPVKit-GPL", package: "MPVKit"),
             ],

@@ -388,15 +388,15 @@ public enum MediaInfo {
 
 public struct ContinueWatchingItem: Identifiable {
     public let id: String
-    let tmdbId: Int
-    let title: String
-    let isMovie: Bool
-    let progress: Double
-    let currentTime: Double
-    let totalDuration: Double
-    let lastUpdated: Date
-    let seasonNumber: Int?
-    let episodeNumber: Int?
+    public let tmdbId: Int
+    public let title: String
+    public let isMovie: Bool
+    public let progress: Double
+    public let currentTime: Double
+    public let totalDuration: Double
+    public let lastUpdated: Date
+    public let seasonNumber: Int?
+    public let episodeNumber: Int?
     
     public var remainingTime: String {
         let remaining = totalDuration - currentTime
@@ -412,6 +412,19 @@ public struct ContinueWatchingItem: Identifiable {
     
     public var formattedProgress: String {
         return "\(Int(progress * 100))%"
+    }
+    
+    public init(id: String, tmdbId: Int, title: String, isMovie: Bool, progress: Double, currentTime: Double, totalDuration: Double, lastUpdated: Date, seasonNumber: Int?, episodeNumber: Int?) {
+        self.id = id
+        self.tmdbId = tmdbId
+        self.title = title
+        self.isMovie = isMovie
+        self.progress = progress
+        self.currentTime = currentTime
+        self.totalDuration = totalDuration
+        self.lastUpdated = lastUpdated
+        self.seasonNumber = seasonNumber
+        self.episodeNumber = episodeNumber
     }
 }
 
