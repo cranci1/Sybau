@@ -4,7 +4,7 @@
 
 <div align="center">
 
-[![Build and Release IPA](https://github.com/cranci1/Sybau/actions/workflows/build.yml/badge.svg)](https://github.com/cranci1/Sybau/actions/workflows/build.yml) [![Discord](https://img.shields.io/discord/1293430817841741899.svg?logo=discord&color=blue)](https://discord.gg/XR3SrmUbpd) [![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20iPadOS%2015.0%2B%20%26%20macOS%2012.0%2B-red?logo=apple&logoColor=white)](https://img.shields.io/badge/Platform-iOS%20%7C%20iPadOS%2015.0%2B%20%26%20macOS%2012.0%2B-red?logo=apple&logoColor=white)
+ [![Discord](https://img.shields.io/discord/1293430817841741899.svg?logo=discord&color=blue)](https://discord.gg/XR3SrmUbpd) [![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20iPadOS%2015.0%2B%20%26%20macOS%2012.0%2B-red?logo=apple&logoColor=white)](https://img.shields.io/badge/Platform-iOS%20%7C%20iPadOS%2015.0%2B%20%26%20macOS%2012.0%2B-red?logo=apple&logoColor=white)
 
 **An iOS, macOS and tvOS media player**
 
