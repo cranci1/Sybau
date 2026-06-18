@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "Sybau",
     platforms: [
-        .iOS(.v15)
+        .iOS(.v15),
+        .tvOS("17.5")
     ],
     products: [
         .library(
