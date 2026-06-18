@@ -11,7 +11,7 @@ import Foundation
 public enum SyncKeychainStore {
     private static let service = "me.cranci.mpv.sync"
     
-    static func set(_ value: String, for key: String) {
+    public static func set(_ value: String, for key: String) {
         guard let data = value.data(using: .utf8) else { return }
         
         let query: [String: Any] = [
@@ -32,7 +32,7 @@ public enum SyncKeychainStore {
         }
     }
     
-    static func get(_ key: String) -> String? {
+    public static func get(_ key: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -52,7 +52,7 @@ public enum SyncKeychainStore {
         return value
     }
     
-    static func remove(_ key: String) {
+    public static func remove(_ key: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,

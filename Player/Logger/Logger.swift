@@ -1,7 +1,7 @@
 import Foundation
 
 public class Logger: @unchecked Sendable {
-    static let shared = Logger()
+    public static let shared = Logger()
     
     struct LogEntry {
         let message: String
@@ -22,7 +22,7 @@ public class Logger: @unchecked Sendable {
     
     // MARK: - Public API
     
-    func log(_ message: String, type: String = "General") {
+    public func log(_ message: String, type: String = "General") {
         let entry = LogEntry(message: message, type: type, timestamp: Date())
         
         queue.async(flags: .barrier) {
@@ -47,7 +47,7 @@ public class Logger: @unchecked Sendable {
         }
     }
     
-    func getLogs() -> String {
+    public func getLogs() -> String {
         var result = ""
         queue.sync {
             let formatter = DateFormatter()
@@ -59,7 +59,7 @@ public class Logger: @unchecked Sendable {
         return result
     }
     
-    func getLogsAsync() async -> String {
+    public func getLogsAsync() async -> String {
         await withCheckedContinuation { continuation in
             queue.async {
                 let formatter = DateFormatter()
@@ -72,14 +72,14 @@ public class Logger: @unchecked Sendable {
         }
     }
     
-    func clearLogs() {
+    public func clearLogs() {
         queue.async(flags: .barrier) {
             self.logs.removeAll()
             try? FileManager.default.removeItem(at: self.logFileURL)
         }
     }
     
-    func clearLogsAsync() async {
+    public func clearLogsAsync() async {
         await withCheckedContinuation { continuation in
             queue.async(flags: .barrier) {
                 self.logs.removeAll()

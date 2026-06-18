@@ -39,48 +39,62 @@ public struct ProgressData: Codable {
     }
 }
 
-struct MovieProgressEntry: Codable, Identifiable {
-    let id: Int
-    let title: String
-    var currentTime: Double = 0
-    var totalDuration: Double = 0
-    var isWatched: Bool = false
-    var lastUpdated: Date = Date()
+public struct MovieProgressEntry: Codable, Identifiable {
+    public let id: Int
+    public let title: String
+    public var currentTime: Double = 0
+    public var totalDuration: Double = 0
+    public var isWatched: Bool = false
+    public var lastUpdated: Date = Date()
     
-    var progress: Double {
+    public var progress: Double {
         guard totalDuration > 0 else { return 0 }
         return min(currentTime / totalDuration, 1.0)
+    }
+    
+    public init(id: Int, title: String, currentTime: Double = 0, totalDuration: Double = 0, isWatched: Bool = false, lastUpdated: Date = Date()) {
+        self.id = id
+        self.title = title
+        self.currentTime = currentTime
+        self.totalDuration = totalDuration
+        self.isWatched = isWatched
+        self.lastUpdated = lastUpdated
     }
 }
 
-struct EpisodeProgressEntry: Codable, Identifiable {
-    let id: String
-    let showId: Int
-    var showTitle: String?
-    let seasonNumber: Int
-    let episodeNumber: Int
-    var currentTime: Double = 0
-    var totalDuration: Double = 0
-    var isWatched: Bool = false
-    var lastUpdated: Date = Date()
+public struct EpisodeProgressEntry: Codable, Identifiable {
+    public let id: String
+    public let showId: Int
+    public var showTitle: String?
+    public let seasonNumber: Int
+    public let episodeNumber: Int
+    public var currentTime: Double = 0
+    public var totalDuration: Double = 0
+    public var isWatched: Bool = false
+    public var lastUpdated: Date = Date()
     
-    var progress: Double {
+    public var progress: Double {
         guard totalDuration > 0 else { return 0 }
         return min(currentTime / totalDuration, 1.0)
     }
     
-    init(showId: Int, seasonNumber: Int, episodeNumber: Int) {
+    public init(showId: Int, seasonNumber: Int, episodeNumber: Int, showTitle: String? = nil, currentTime: Double = 0, totalDuration: Double = 0, isWatched: Bool = false, lastUpdated: Date = Date()) {
         self.id = "ep_\(showId)_s\(seasonNumber)_e\(episodeNumber)"
         self.showId = showId
         self.seasonNumber = seasonNumber
         self.episodeNumber = episodeNumber
+        self.showTitle = showTitle
+        self.currentTime = currentTime
+        self.totalDuration = totalDuration
+        self.isWatched = isWatched
+        self.lastUpdated = lastUpdated
     }
 }
 
 // MARK: - ProgressManager
 
 public final class ProgressManager {
-    static let shared = ProgressManager()
+    public static let shared = ProgressManager()
     
     private let fileManager = FileManager.default
     private var progressData: ProgressData = ProgressData()
@@ -141,7 +155,7 @@ public final class ProgressManager {
     
     // MARK: - Movie Progress
     
-    func updateMovieProgress(movieId: Int, title: String, currentTime: Double, totalDuration: Double) {
+    public func updateMovieProgress(movieId: Int, title: String, currentTime: Double, totalDuration: Double) {
         guard currentTime >= 0 && totalDuration > 0 && currentTime <= totalDuration else {
             Logger.shared.log("Invalid progress values for movie \(title): currentTime=\(currentTime), totalDuration=\(totalDuration)", type: "Warning")
             return
@@ -161,14 +175,14 @@ public final class ProgressManager {
             self.progressData.updateMovie(entry)
         }
         debouncedSave()
-
+        
         let progress = min(currentTime / totalDuration, 1.0)
         Task { @MainActor in
             ProgressSyncManager.shared.pushMovieProgress(tmdbId: movieId, title: title, progress: progress)
         }
     }
     
-    func getMovieProgress(movieId: Int, title: String) -> Double {
+    public func getMovieProgress(movieId: Int, title: String) -> Double {
         var result: Double = 0.0
         accessQueue.sync {
             result = self.progressData.findMovie(id: movieId)?.progress ?? 0.0
@@ -176,7 +190,7 @@ public final class ProgressManager {
         return result
     }
     
-    func getMovieCurrentTime(movieId: Int, title: String) -> Double {
+    public func getMovieCurrentTime(movieId: Int, title: String) -> Double {
         var result: Double = 0.0
         accessQueue.sync {
             result = self.progressData.findMovie(id: movieId)?.currentTime ?? 0.0
@@ -184,7 +198,7 @@ public final class ProgressManager {
         return result
     }
     
-    func isMovieWatched(movieId: Int, title: String) -> Bool {
+    public func isMovieWatched(movieId: Int, title: String) -> Bool {
         var result: Bool = false
         accessQueue.sync {
             if let entry = self.progressData.findMovie(id: movieId) {
@@ -194,7 +208,7 @@ public final class ProgressManager {
         return result
     }
     
-    func markMovieAsWatched(movieId: Int, title: String) {
+    public func markMovieAsWatched(movieId: Int, title: String) {
         accessQueue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
             if var entry = self.progressData.findMovie(id: movieId) {
@@ -208,7 +222,7 @@ public final class ProgressManager {
         saveProgressData()
     }
     
-    func resetMovieProgress(movieId: Int, title: String) {
+    public func resetMovieProgress(movieId: Int, title: String) {
         accessQueue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
             if var entry = self.progressData.findMovie(id: movieId) {
@@ -224,7 +238,7 @@ public final class ProgressManager {
     
     // MARK: - Episode Progress
     
-    func updateEpisodeProgress(showId: Int, showTitle: String? = nil, seasonNumber: Int, episodeNumber: Int, currentTime: Double, totalDuration: Double) {
+    public func updateEpisodeProgress(showId: Int, showTitle: String? = nil, seasonNumber: Int, episodeNumber: Int, currentTime: Double, totalDuration: Double) {
         guard currentTime >= 0 && totalDuration > 0 && currentTime <= totalDuration else {
             Logger.shared.log("Invalid progress values for episode S\(seasonNumber)E\(episodeNumber): currentTime=\(currentTime), totalDuration=\(totalDuration)", type: "Warning")
             return
@@ -249,7 +263,7 @@ public final class ProgressManager {
             self.progressData.updateEpisode(entry)
         }
         debouncedSave()
-
+        
         let progress = min(currentTime / totalDuration, 1.0)
         Task { @MainActor in
             ProgressSyncManager.shared.pushEpisodeProgress(
@@ -262,7 +276,7 @@ public final class ProgressManager {
         }
     }
     
-    func getEpisodeProgress(showId: Int, seasonNumber: Int, episodeNumber: Int) -> Double {
+    public func getEpisodeProgress(showId: Int, seasonNumber: Int, episodeNumber: Int) -> Double {
         var result: Double = 0.0
         accessQueue.sync {
             result = self.progressData.findEpisode(showId: showId, season: seasonNumber, episode: episodeNumber)?.progress ?? 0.0
@@ -270,7 +284,7 @@ public final class ProgressManager {
         return result
     }
     
-    func getEpisodeCurrentTime(showId: Int, seasonNumber: Int, episodeNumber: Int) -> Double {
+    public func getEpisodeCurrentTime(showId: Int, seasonNumber: Int, episodeNumber: Int) -> Double {
         var result: Double = 0.0
         accessQueue.sync {
             result = self.progressData.findEpisode(showId: showId, season: seasonNumber, episode: episodeNumber)?.currentTime ?? 0.0
@@ -278,7 +292,7 @@ public final class ProgressManager {
         return result
     }
     
-    func isEpisodeWatched(showId: Int, seasonNumber: Int, episodeNumber: Int) -> Bool {
+    public func isEpisodeWatched(showId: Int, seasonNumber: Int, episodeNumber: Int) -> Bool {
         var result: Bool = false
         accessQueue.sync {
             if let entry = self.progressData.findEpisode(showId: showId, season: seasonNumber, episode: episodeNumber) {
@@ -288,7 +302,7 @@ public final class ProgressManager {
         return result
     }
     
-    func markEpisodeAsWatched(showId: Int, seasonNumber: Int, episodeNumber: Int) {
+    public func markEpisodeAsWatched(showId: Int, seasonNumber: Int, episodeNumber: Int) {
         accessQueue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
             if var entry = self.progressData.findEpisode(showId: showId, season: seasonNumber, episode: episodeNumber) {
@@ -302,7 +316,7 @@ public final class ProgressManager {
         saveProgressData()
     }
     
-    func resetEpisodeProgress(showId: Int, seasonNumber: Int, episodeNumber: Int) {
+    public func resetEpisodeProgress(showId: Int, seasonNumber: Int, episodeNumber: Int) {
         accessQueue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
             if var entry = self.progressData.findEpisode(showId: showId, season: seasonNumber, episode: episodeNumber) {
@@ -316,7 +330,7 @@ public final class ProgressManager {
         saveProgressData()
     }
     
-    func markPreviousEpisodesAsWatched(showId: Int, seasonNumber: Int, episodeNumber: Int) {
+    public func markPreviousEpisodesAsWatched(showId: Int, seasonNumber: Int, episodeNumber: Int) {
         guard episodeNumber > 1 else { return }
         
         accessQueue.async(flags: .barrier) { [weak self] in
@@ -336,7 +350,7 @@ public final class ProgressManager {
     
     // MARK: - AVPlayer Extension
     
-    func addPeriodicTimeObserver(to player: AVPlayer, for mediaInfo: MediaInfo) -> Any? {
+    public func addPeriodicTimeObserver(to player: AVPlayer, for mediaInfo: MediaInfo) -> Any? {
         let interval = CMTime(seconds: 1.0, preferredTimescale: CMTimeScale(NSEC_PER_SEC))
         
         return player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
@@ -384,7 +398,7 @@ public struct ContinueWatchingItem: Identifiable {
     let seasonNumber: Int?
     let episodeNumber: Int?
     
-    var remainingTime: String {
+    public var remainingTime: String {
         let remaining = totalDuration - currentTime
         let minutes = Int(remaining) / 60
         if minutes < 60 {
@@ -396,7 +410,7 @@ public struct ContinueWatchingItem: Identifiable {
         }
     }
     
-    var formattedProgress: String {
+    public var formattedProgress: String {
         return "\(Int(progress * 100))%"
     }
 }

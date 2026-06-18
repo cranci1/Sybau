@@ -7,13 +7,13 @@
 
 import UIKit
 
-enum IntroDbSegment: String {
+public enum IntroDbSegment: String {
     case intro
     case recap
     case credits
     case preview
     
-    var title: String {
+    public var title: String {
         switch self {
         case .intro:
             return "Intro"
@@ -26,7 +26,7 @@ enum IntroDbSegment: String {
         }
     }
     
-    var priority: Int {
+    public var priority: Int {
         switch self {
         case .recap:
             return 0
@@ -39,7 +39,7 @@ enum IntroDbSegment: String {
         }
     }
     
-    var uiColor: UIColor {
+    public var uiColor: UIColor {
         switch self {
         case .intro:
             return UIColor.systemBlue
@@ -54,18 +54,18 @@ enum IntroDbSegment: String {
 }
 
 public struct IntroDBSegment {
-    let db: IntroDbSegment
-    let startSeconds: Double
-    let endSeconds: Double?
-    let confidence: Double
-    let submissionCount: Int
+    public let db: IntroDbSegment
+    public let startSeconds: Double
+    public let endSeconds: Double?
+    public let confidence: Double
+    public let submissionCount: Int
     
-    var id: String {
+    public var id: String {
         let end = endSeconds.map { String(format: "%.3f", $0) } ?? "nil"
         return "\(db.rawValue)-\(String(format: "%.3f", startSeconds))-\(end)"
     }
     
-    func resolvedEnd(duration: Double) -> Double? {
+    public func resolvedEnd(duration: Double) -> Double? {
         if let endSeconds {
             return endSeconds
         }
@@ -74,21 +74,36 @@ public struct IntroDBSegment {
         }
         return duration
     }
+    
+    public init(db: IntroDbSegment, startSeconds: Double, endSeconds: Double?, confidence: Double, submissionCount: Int) {
+        self.db = db
+        self.startSeconds = startSeconds
+        self.endSeconds = endSeconds
+        self.confidence = confidence
+        self.submissionCount = submissionCount
+    }
 }
 
-struct IntroDBSegmentHighlight {
-    let start: Double
-    let end: Double
-    let color: UIColor
-    let label: String
+public struct IntroDBSegmentHighlight {
+    public let start: Double
+    public let end: Double
+    public let color: UIColor
+    public let label: String
+    
+    public init(start: Double, end: Double, color: UIColor, label: String) {
+        self.start = start
+        self.end = end
+        self.color = color
+        self.label = label
+    }
 }
 
 public final class IntroDBService {
-    static let shared = IntroDBService()
+    public static let shared = IntroDBService()
     
     private init() {}
     
-    func fetchSegments(for mediaInfo: MediaInfo, completion: @escaping (Result<[IntroDBSegment], Error>) -> Void) {
+    public func fetchSegments(for mediaInfo: MediaInfo, completion: @escaping (Result<[IntroDBSegment], Error>) -> Void) {
         var components = URLComponents(string: "https://api.theintrodb.org/v2/media")
         var queryItems: [URLQueryItem] = []
         
@@ -133,7 +148,7 @@ public final class IntroDBService {
         }.resume()
     }
     
-    func highlights(for segments: [IntroDBSegment], duration: Double) -> [IntroDBSegmentHighlight] {
+    public func highlights(for segments: [IntroDBSegment], duration: Double) -> [IntroDBSegmentHighlight] {
         guard duration > 0, duration.isFinite else { return [] }
         
         return segments.compactMap { segment in
@@ -152,7 +167,7 @@ public final class IntroDBService {
         }
     }
     
-    func activeSegment(at position: Double, in segments: [IntroDBSegment], duration: Double?) -> IntroDBSegment? {
+    public func activeSegment(at position: Double, in segments: [IntroDBSegment], duration: Double?) -> IntroDBSegment? {
         let resolvedDuration = duration ?? 0
         
         return segments
