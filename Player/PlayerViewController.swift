@@ -229,7 +229,7 @@ public final class PlayerViewController: UIViewController {
         r.delegate = self
         return r
     }()
-    var mediaInfo: MediaInfo?
+    public var mediaInfo: MediaInfo?
     private var isSeeking = false
     private var cachedDuration: Double = 0
     private var cachedPosition: Double = 0
