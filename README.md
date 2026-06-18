@@ -12,10 +12,9 @@
 
 ## Features
 
-- [x] tvOS 15.0+ support
-- [x] macOS 12.0+ support
+- [x] tvOS 17.5+ support
 - [x] iOS/iPadOS 15.0+ support
 
 ## License
 
-This project is licensed under the [LGNU Lesser General Public License v3.0](LICENSE) (LGPLv3.0).
+This project is licensed under the [GNU Lesser General Public License v3.0](LICENSE) (GPLv3.0).
