@@ -241,7 +241,6 @@ final class MPVRenderer {
                     return
                 }
             }
-            self.pumpPiPFrame()
             self.pipDisplayLinkRequested = true
             self.startPiPDisplayLinkLocked()
         }
@@ -254,8 +253,8 @@ final class MPVRenderer {
     // MARK: - Load
     
     func load(url: URL, with preset: PlayerPreset, headers: [String: String]? = nil) {
-        currentPreset = preset
-        currentURL = url
+        currentPreset  = preset
+        currentURL     = url
         currentHeaders = headers
         
         setIsLoading(true)
@@ -301,9 +300,9 @@ final class MPVRenderer {
             return
         }
         guard let handle = mpv else { return }
-        let layer = view.layer
-        let rawPtr = UInt(bitPattern: Unmanaged.passUnretained(layer).toOpaque())
-        var wid = Int64(bitPattern: UInt64(rawPtr))
+        let layer   = view.layer
+        let rawPtr  = UInt(bitPattern: Unmanaged.passUnretained(layer).toOpaque())
+        var wid     = Int64(bitPattern: UInt64(rawPtr))
         withUnsafeMutablePointer(to: &wid) { ptr in
             _ = mpv_set_option(handle, "wid", MPV_FORMAT_INT64, ptr)
         }

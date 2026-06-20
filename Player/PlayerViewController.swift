@@ -474,18 +474,6 @@ public final class PlayerViewController: UIViewController {
         displayLayer.isHidden = false
         videoContainer.layer.addSublayer(displayLayer)
         
-        var timebase: CMTimebase?
-        if CMTimebaseCreateWithSourceClock(
-            allocator: kCFAllocatorDefault,
-            sourceClock: CMClockGetHostTimeClock(),
-            timebaseOut: &timebase
-        ) == noErr, let timebase = timebase {
-            CMTimebaseSetRate(timebase, rate: 1.0)
-            let now = CMClockGetTime(CMClockGetHostTimeClock())
-            CMTimebaseSetTime(timebase, time: now)
-            displayLayer.controlTimebase = timebase
-        }
-        
         videoContainer.addSubview(controlsOverlayView)
         videoContainer.addSubview(loadingIndicator)
         view.addSubview(errorBanner)

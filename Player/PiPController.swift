@@ -28,10 +28,6 @@ public final class PiPController: NSObject {
     private var pendingStartWorkItem: DispatchWorkItem?
     private var isStartInProgress = false
     
-    private var pipStartRetryCount = 0
-    private let maxPipStartRetries = 3
-    private var pipStartRetryWorkItem: DispatchWorkItem?
-    
     weak var delegate: PiPControllerDelegate?
     
     var isPictureInPictureSupported: Bool {
@@ -138,25 +134,11 @@ extension PiPController: AVPictureInPictureControllerDelegate {
     }
     
     public func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, failedToStartPictureInPictureWithError error: Error) {
-        let nsError = error as NSError
-        if nsError.domain == "PGPegasusErrorDomain" && nsError.code == -1003 {
-            guard pipStartRetryCount < maxPipStartRetries else {
-                Logger.shared.log("PiP start failed after \(maxPipStartRetries) retries", type: "Error")
-                delegate?.pipController(self, didStartPictureInPicture: false)
-                return
-            }
-            pipStartRetryCount += 1
-            let delay = Double(pipStartRetryCount) * 0.3
-            pipStartRetryWorkItem?.cancel()
-            let work = DispatchWorkItem { [weak self] in
-                self?.startPictureInPicture()
-            }
-            pipStartRetryWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
-            Logger.shared.log("PiP start failed (-1003), retry \(pipStartRetryCount) in \(delay)s", type: "Warn")
-        } else {
-            delegate?.pipController(self, didStartPictureInPicture: false)
-        }
+        pendingStartWorkItem?.cancel()
+        pendingStartWorkItem = nil
+        isStartInProgress = false
+        Logger.shared.log("Failed to start PiP: \(error)", type: "mpv")
+        delegate?.pipController(self, didStartPictureInPicture: false)
     }
     
     public func pictureInPictureControllerWillStopPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
