@@ -46,10 +46,10 @@ final class MPVRenderer {
     private let pipDisplayLayer: AVSampleBufferDisplayLayer
     
     private let renderQueue = DispatchQueue(label: "mpv.render", qos: .userInitiated)
-    private let eventQueue  = DispatchQueue(label: "mpv.events",  qos: .utility)
-    private let stateQueue  = DispatchQueue(label: "mpv.state",   attributes: .concurrent)
+    private let eventQueue  = DispatchQueue(label: "mpv.events", qos: .utility)
+    private let stateQueue  = DispatchQueue(label: "mpv.state", attributes: .concurrent)
     private let eventQueueGroup = DispatchGroup()
-    private let renderQueueKey  = DispatchSpecificKey<Void>()
+    private let renderQueueKey = DispatchSpecificKey<Void>()
     
     private var mpv: OpaquePointer?
     private var pipRenderContext: OpaquePointer?
@@ -64,16 +64,14 @@ final class MPVRenderer {
     private var pixelBufferPoolAuxAttributes: CFDictionary?
     private var formatDescription: CMVideoFormatDescription?
     private var didFlushForFormatChange = false
-    private var poolWidth:  Int = 0
+    private var poolWidth: Int = 0
     private var poolHeight: Int = 0
-    private var preAllocatedBuffers: [CVPixelBuffer] = []
-    private let maxPreAllocatedBuffers = 6
     
     private var currentPreset: PlayerPreset?
     private var currentURL: URL?
     private var currentHeaders: [String: String]?
     
-    private var isRunning  = false
+    private var isRunning = false
     private var isStopping = false
     private var shouldClearPixelBuffer = false
     private let bgraFormatCString: [CChar] = Array("bgra\0".utf8CString)
@@ -113,12 +111,12 @@ final class MPVRenderer {
         stateQueue.sync { (_cachedPosition, _cachedDuration) }
     }
     
-    // MARK: - Pip helpers
+    // MARK: - PiP helpers
     
     private var pipDisplayLink: CADisplayLink?
     private var pipDisplayLinkProxy: PiPDisplayLinkProxy?
     private var pipDisplayLinkRequested = false
-    private var pipFramePumpScheduled   = false
+    private var pipFramePumpScheduled = false
     private var lastRenderDimensions: CGSize = .zero
     
     private final class PiPDisplayLinkProxy: NSObject {
@@ -151,8 +149,8 @@ final class MPVRenderer {
         setOption(name: "hwdec", value: "videotoolbox")
         
         setOption(name: "idle", value: "yes")
-        setOption(name: "keep-open", value: "yes")
         setOption(name: "hr-seek", value: "yes")
+        setOption(name: "keep-open", value: "yes")
         setOption(name: "video-sync", value: "audio")
         setOption(name: "interpolation", value: "no")
         setOption(name: "demuxer-thread", value: "yes")
@@ -162,8 +160,18 @@ final class MPVRenderer {
         setOption(name: "subs-fallback", value: "yes")
         setOption(name: "sub-ass-override", value: "yes")
         
-        setOption(name: "msg-level", value: "all=warn")
+        setOption(name: "vd-lavc-dr", value: "yes")
+        setOption(name: "vd-lavc-threads", value: "auto")
         
+        setOption(name: "cache", value: "yes")
+        setOption(name: "cache-secs", value: "60")
+        setOption(name: "cache-initial", value: "100")
+        setOption(name: "demuxer-max-bytes", value: "64M")
+        setOption(name: "demuxer-readahead-secs", value: "10")
+        
+        setOption(name: "framedrop", value: "vo")
+        
+        configureAudioSession()
         configureWindowEmbedding()
         
         let initStatus = mpv_initialize(handle)
@@ -181,7 +189,7 @@ final class MPVRenderer {
         guard !isStopping else { return }
         guard isRunning || mpv != nil else { return }
         
-        isRunning  = false
+        isRunning = false
         isStopping = true
         var handleForShutdown: OpaquePointer?
         
@@ -195,9 +203,8 @@ final class MPVRenderer {
                 mpv_wakeup(handle)
             }
             self.formatDescription = nil
-            self.preAllocatedBuffers.removeAll()
             self.pixelBufferPool = nil
-            self.poolWidth  = 0
+            self.poolWidth = 0
             self.poolHeight = 0
             self.lastRenderDimensions = .zero
         }
@@ -208,11 +215,10 @@ final class MPVRenderer {
             guard let self else { return }
             if let handle = handleForShutdown { mpv_destroy(handle) }
             self.mpv = nil
-            self.preAllocatedBuffers.removeAll()
             self.pixelBufferPool = nil
             self.pixelBufferPoolAuxAttributes = nil
             self.formatDescription = nil
-            self.poolWidth  = 0
+            self.poolWidth = 0
             self.poolHeight = 0
         }
         
@@ -225,6 +231,18 @@ final class MPVRenderer {
             }
         }
         isStopping = false
+    }
+    
+    // MARK: - Audio session
+    
+    private func configureAudioSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay, .allowBluetoothA2DP])
+            try session.setActive(true)
+        } catch {
+            Logger.shared.log("AVAudioSession setup failed: \(error)", type: "Warn")
+        }
     }
     
     // MARK: - PiP rendering
@@ -253,8 +271,8 @@ final class MPVRenderer {
     // MARK: - Load
     
     func load(url: URL, with preset: PlayerPreset, headers: [String: String]? = nil) {
-        currentPreset  = preset
-        currentURL     = url
+        currentPreset = preset
+        currentURL = url
         currentHeaders = headers
         
         setIsLoading(true)
@@ -300,22 +318,24 @@ final class MPVRenderer {
             return
         }
         guard let handle = mpv else { return }
-        let layer   = view.layer
-        let rawPtr  = UInt(bitPattern: Unmanaged.passUnretained(layer).toOpaque())
-        var wid     = Int64(bitPattern: UInt64(rawPtr))
+        let layer = view.layer
+        let rawPtr = UInt(bitPattern: Unmanaged.passUnretained(layer).toOpaque())
+        var wid = Int64(bitPattern: UInt64(rawPtr))
         withUnsafeMutablePointer(to: &wid) { ptr in
             _ = mpv_set_option(handle, "wid", MPV_FORMAT_INT64, ptr)
         }
     }
     
-    private func setProperty(name: String, value: String) {
-        guard let handle = mpv else { return }
+    @discardableResult
+    private func setProperty(name: String, value: String) -> Int32 {
+        guard let handle = mpv else { return -1 }
         let status = value.withCString { vp in
             name.withCString { np in mpv_set_property_string(handle, np, vp) }
         }
         if status < 0 {
             Logger.shared.log("Failed to set \(name)=\(value) (\(status))", type: "Warn")
         }
+        return status
     }
     
     private func clearProperty(name: String) {
@@ -407,7 +427,7 @@ final class MPVRenderer {
     private func stopPiPDisplayLinkLocked() {
         DispatchQueue.main.async { [weak self] in
             self?.pipDisplayLink?.invalidate()
-            self?.pipDisplayLink      = nil
+            self?.pipDisplayLink = nil
             self?.pipDisplayLinkProxy = nil
         }
     }
@@ -434,10 +454,10 @@ final class MPVRenderer {
     private func renderFrame(with context: OpaquePointer) {
         guard !isPausedState else { return }
         
-        let videoSize  = currentVideoSize()
+        let videoSize = currentVideoSize()
         guard videoSize.width > 0, videoSize.height > 0 else { return }
         let targetSize = targetRenderSize(for: videoSize)
-        let width  = Int(targetSize.width)
+        let width = Int(targetSize.width)
         let height = Int(targetSize.height)
         guard width > 0, height > 0 else { return }
         
@@ -453,10 +473,7 @@ final class MPVRenderer {
         var pixelBuffer: CVPixelBuffer?
         var status: CVReturn = kCVReturnError
         
-        if !preAllocatedBuffers.isEmpty {
-            pixelBuffer = preAllocatedBuffers.removeFirst()
-            status = kCVReturnSuccess
-        } else if let pool = pixelBufferPool {
+        if let pool = pixelBufferPool {
             status = CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(kCFAllocatorDefault, pool, pixelBufferPoolAuxAttributes, &pixelBuffer)
         }
         
@@ -541,11 +558,8 @@ final class MPVRenderer {
             kCVPixelBufferCGImageCompatibilityKey: kCFBooleanTrue!,
             kCVPixelBufferCGBitmapContextCompatibilityKey: kCFBooleanTrue!
         ]
-        let poolAttrs: [CFString: Any] = [
-            kCVPixelBufferPoolMinimumBufferCountKey: maxPreAllocatedBuffers,
-            kCVPixelBufferPoolMaximumBufferAgeKey: 0
-        ]
-        let auxAttrs: [CFString: Any] = [kCVPixelBufferPoolAllocationThresholdKey: 6]
+        let poolAttrs: [CFString: Any] = [kCVPixelBufferPoolMaximumBufferAgeKey: 0]
+        let auxAttrs: [CFString: Any] = [:]
         
         var pool: CVPixelBufferPool?
         let status = CVPixelBufferPoolCreate(kCFAllocatorDefault, poolAttrs as CFDictionary, attrs as CFDictionary, &pool)
@@ -557,7 +571,6 @@ final class MPVRenderer {
                 self.poolWidth = width
                 self.poolHeight = height
             }
-            preAllocateBuffers()
         } else {
             Logger.shared.log("Failed to create CVPixelBufferPool (status: \(status))", type: "Error")
         }
@@ -565,40 +578,12 @@ final class MPVRenderer {
     
     private func recreatePixelBufferPool(width: Int, height: Int) {
         renderQueueSync {
-            self.preAllocatedBuffers.removeAll()
             self.pixelBufferPool = nil
             self.formatDescription = nil
             self.poolWidth = 0
             self.poolHeight = 0
         }
         createPixelBufferPool(width: width, height: height)
-    }
-    
-    private func preAllocateBuffers() {
-        guard DispatchQueue.getSpecific(key: renderQueueKey) != nil else {
-            renderQueue.async { [weak self] in self?.preAllocateBuffers() }
-            return
-        }
-        guard let pool = pixelBufferPool else { return }
-        let target  = min(maxPreAllocatedBuffers, 5)
-        let current = preAllocatedBuffers.count
-        guard current < target else { return }
-        let needed  = min(target - current, 2)
-        for _ in 0..<needed {
-            var buf: CVPixelBuffer?
-            let status = CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(kCFAllocatorDefault, pool, pixelBufferPoolAuxAttributes, &buf)
-            
-            if status == kCVReturnSuccess, let buf {
-                if preAllocatedBuffers.count < maxPreAllocatedBuffers {
-                    preAllocatedBuffers.append(buf)
-                }
-            } else {
-                if status != kCVReturnWouldExceedAllocationThreshold {
-                    Logger.shared.log("Pre-allocate buffer failed (status: \(status))", type: "Warn")
-                }
-                break
-            }
-        }
     }
     
     private func enqueue(buffer: CVPixelBuffer) {
@@ -682,7 +667,7 @@ final class MPVRenderer {
             var needsRecreate = false
             if let desc = self.formatDescription {
                 let dims = CMVideoFormatDescriptionGetDimensions(desc)
-                let pf   = CMFormatDescriptionGetMediaSubType(desc)
+                let pf = CMFormatDescriptionGetMediaSubType(desc)
                 if dims.width != w || dims.height != h || pf != fmt { needsRecreate = true }
             } else {
                 needsRecreate = true
@@ -729,9 +714,8 @@ final class MPVRenderer {
         }
         pipDisplayLinkRequested = false
         pipFramePumpScheduled = false
-        preAllocatedBuffers.removeAll()
         pixelBufferPool = nil
-        pixelBufferPoolAuxAttributes  = nil
+        pixelBufferPoolAuxAttributes = nil
         formatDescription = nil
         didFlushForFormatChange = false
         poolWidth = 0
@@ -846,7 +830,7 @@ final class MPVRenderer {
             var flag: Int32 = 0
             if getProperty(handle: handle, name: name, format: MPV_FORMAT_FLAG, value: &flag) >= 0 {
                 let newPaused = flag != 0
-                let changed   = stateQueue.sync { _isPaused != newPaused }
+                let changed = stateQueue.sync { _isPaused != newPaused }
                 if changed {
                     setIsPaused(newPaused)
                     dispatchToMain { [weak self] in

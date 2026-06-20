@@ -1,8 +1,6 @@
 //
 //  ProgressSyncManager.swift
-//  Luna
-//
-//  Created by Francesco.
+//  Sybau
 //
 
 import Foundation

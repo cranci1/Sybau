@@ -1,8 +1,6 @@
 //
 //  PiPController.swift
-//  test
-//
-//  Created by Francesco on 30/09/25.
+//  Sybau
 //
 
 import AVKit
@@ -62,9 +60,9 @@ public final class PiPController: NSObject {
         pipController = AVPictureInPictureController(contentSource: contentSource)
         pipController?.delegate = self
         pipController?.requiresLinearPlayback = false
-        #if !os(tvOS)
+#if !os(tvOS)
         pipController?.canStartPictureInPictureAutomaticallyFromInline = true
-        #endif
+#endif
     }
     
     func startPictureInPicture() {
@@ -72,14 +70,14 @@ public final class PiPController: NSObject {
             Logger.shared.log("PiP is not supported on this device", type: "mpv")
             return
         }
-
+        
         if pipController == nil {
             setupPictureInPicture()
         }
-
+        
         guard let pipController = pipController else { return }
         guard !isStartInProgress, !pipController.isPictureInPictureActive else { return }
-
+        
         let canStart = pipController.isPictureInPicturePossible
         if !canStart {
             pendingStartWorkItem?.cancel()
@@ -93,7 +91,7 @@ public final class PiPController: NSObject {
             Logger.shared.log("PiP start deferred: not yet possible, retrying shortly", type: "mpv")
             return
         }
-
+        
         isStartInProgress = true
         pipController.invalidatePlaybackState()
         
@@ -120,7 +118,6 @@ public final class PiPController: NSObject {
 }
 
 // MARK: - AVPictureInPictureControllerDelegate
-
 extension PiPController: AVPictureInPictureControllerDelegate {
     public func pictureInPictureControllerWillStartPictureInPicture(_ pictureInPictureController: AVPictureInPictureController) {
         delegate?.pipController(self, willStartPictureInPicture: true)
@@ -158,7 +155,6 @@ extension PiPController: AVPictureInPictureControllerDelegate {
 }
 
 // MARK: - AVPictureInPictureSampleBufferPlaybackDelegate
-
 extension PiPController: AVPictureInPictureSampleBufferPlaybackDelegate {
     public func pictureInPictureController(_ pictureInPictureController: AVPictureInPictureController, setPlaying playing: Bool) {
         if playing {

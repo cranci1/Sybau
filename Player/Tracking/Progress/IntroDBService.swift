@@ -1,8 +1,6 @@
 //
 //  IntroDBService.swift
-//  Luna
-//
-//  Created by Francesco on 13/03/26.
+//  Sybau
 //
 
 import UIKit

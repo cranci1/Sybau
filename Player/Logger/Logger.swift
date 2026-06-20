@@ -1,3 +1,8 @@
+//
+//  Logger.swift
+//  Sybau
+//
+
 import Foundation
 
 public class Logger: @unchecked Sendable {

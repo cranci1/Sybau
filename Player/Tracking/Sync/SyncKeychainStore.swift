@@ -1,8 +1,6 @@
 //
 //  SyncKeychainStore.swift
-//  Luna
-//
-//  Created by Francesco.
+//  Sybau
 //
 
 import Security

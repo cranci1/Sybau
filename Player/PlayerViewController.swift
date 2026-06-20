@@ -11,7 +11,6 @@ import TVUIKit
 #endif
 
 public final class PlayerViewController: UIViewController {
-    
     // MARK: - Video surface
     
     private let videoContainer: UIView = {
@@ -259,9 +258,9 @@ public final class PlayerViewController: UIViewController {
         
         private func save() {
             let d = UserDefaults.standard
-            d.set(isVisible,   forKey: "subtitles_isVisible")
+            d.set(isVisible, forKey: "subtitles_isVisible")
             d.set(strokeWidth, forKey: "subtitles_strokeWidth")
-            d.set(fontSize,    forKey: "subtitles_fontSize")
+            d.set(fontSize, forKey: "subtitles_fontSize")
             if let fg = try? NSKeyedArchiver.archivedData(withRootObject: foregroundColor, requiringSecureCoding: false) {
                 d.set(fg, forKey: "subtitles_foregroundColor")
             }
@@ -298,10 +297,9 @@ public final class PlayerViewController: UIViewController {
     private var pendingSeekTime: Double?
     private var introDBSegments: [IntroDBSegment] = []
     private var activeSkipSegmentID: String?
-    
 #if !os(tvOS)
     private let holdHaptic = UIImpactFeedbackGenerator(style: .medium)
-    private let skipHaptic  = UIImpactFeedbackGenerator(style: .light)
+    private let skipHaptic = UIImpactFeedbackGenerator(style: .light)
 #endif
     
     // MARK: - View lifecycle
@@ -309,13 +307,11 @@ public final class PlayerViewController: UIViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .black
-        
 #if !os(tvOS)
         modalPresentationCapturesStatusBarAppearance = true
         holdHaptic.prepare()
         skipHaptic.prepare()
 #endif
-        
         setupLayout()
         setupActions()
         setupHoldGesture()
@@ -352,7 +348,6 @@ public final class PlayerViewController: UIViewController {
 #if !os(tvOS)
     public override var prefersStatusBarHidden: Bool { true }
     public override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
-    
     public override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         UserDefaults.standard.bool(forKey: "alwaysLandscape") ? .landscape : .all
     }
@@ -374,9 +369,9 @@ public final class PlayerViewController: UIViewController {
         CATransaction.setDisableActions(true)
         primaryRenderView.frame = videoContainer.bounds
         primaryRenderView.layoutIfNeeded()
-        displayLayer.frame     = CGRect(x: 0, y: 0, width: 1, height: 1)
-        displayLayer.isHidden  = false
-        displayLayer.opacity   = 0.001
+        displayLayer.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+        displayLayer.isHidden = false
+        displayLayer.opacity = 0.001
         if let grad = controlsOverlayView.layer.sublayers?
             .first(where: { $0.name == "gradientLayer" }) {
             grad.frame = controlsOverlayView.bounds
@@ -715,7 +710,7 @@ public final class PlayerViewController: UIViewController {
                             children: [
                                 colorAction(title: "White", color: .white, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
                                 colorAction(title: "Yellow", color: .yellow, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
-                                colorAction(title: "Cyan", color: .cyan, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0 },
+                                colorAction(title: "Cyan", color: .cyan, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
                                 colorAction(title: "Green", color: .green, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
                                 colorAction(title: "Magenta", color: .magenta, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0}
                             ])
@@ -753,7 +748,7 @@ public final class PlayerViewController: UIViewController {
                             children: [
                                 sizeAction("Small", 34), sizeAction("Medium", 38),
                                 sizeAction("Large", 42), sizeAction("Extra Large", 46),
-                                sizeAction("Huge", 56),  sizeAction("Extra Huge", 66)
+                                sizeAction("Huge", 56), sizeAction("Extra Huge", 66)
                             ])
         
         return UIMenu(title: "Appearance", image: UIImage(systemName: "paintbrush"), children: [fgMenu, scMenu, swMenu, fsMenu])
@@ -765,7 +760,7 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func updateSubtitleButtonAppearance() {
-        let cfg  = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         let name = subtitleModel.isVisible ? "captions.bubble.fill" : "captions.bubble"
         subtitleButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
     }
@@ -866,7 +861,7 @@ public final class PlayerViewController: UIViewController {
     private func updatePlayPauseButton(isPaused: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let cfg  = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
+            let cfg = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
             let name = isPaused ? "play.fill" : "pause.fill"
             
             self.centerPlayPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
@@ -948,9 +943,9 @@ public final class PlayerViewController: UIViewController {
     @objc private func viewLogsTapped() {
         Task { @MainActor in
             let logs = await Logger.shared.getLogsAsync()
-            let vc   = UIViewController()
-            vc.view.backgroundColor = UIColor.black
-            let tv   = UITextView()
+            let vc = UIViewController()
+            vc.view.backgroundColor = UIColor.systemBackground
+            let tv = UITextView()
             tv.translatesAutoresizingMaskIntoConstraints = false
 #if !os(tvOS)
             tv.isEditable = false
@@ -1067,7 +1062,7 @@ public final class PlayerViewController: UIViewController {
     
     @objc private func skipSegmentTapped() {
         guard let segment = currentActiveSegment(at: cachedPosition) else { return }
-        guard let target  = resolvedEnd(for: segment, duration: cachedDuration) else { return }
+        guard let target = resolvedEnd(for: segment, duration: cachedDuration) else { return }
         renderer.seek(to: max(0, target))
         showControlsTemporarily()
     }
@@ -1075,12 +1070,13 @@ public final class PlayerViewController: UIViewController {
     // MARK: - Position update
     
     private func updatePosition(_ position: Double, duration: Double) {
+        self.cachedDuration = duration
+        self.cachedPosition = position
+        
         let now = CACurrentMediaTime()
         guard now - lastUIUpdateTime > 0.1 else { return }
         lastUIUpdateTime = now
         
-        self.cachedDuration = duration
-        self.cachedPosition = position
         if duration > 0 {
             self.installProgressHostingControllerIfNeeded()
             self.updateProgressHighlights(duration: duration)
@@ -1088,11 +1084,11 @@ public final class PlayerViewController: UIViewController {
         self.progressModel.position = position
         self.progressModel.duration = max(duration, 1.0)
         self.updateActiveSkipSegment(at: position, duration: duration)
-
+        
         if self.pipController?.isPictureInPictureActive == true {
             self.pipController?.updatePlaybackState()
         }
-
+        
         guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
         
         switch info {
@@ -1146,7 +1142,7 @@ public final class PlayerViewController: UIViewController {
     
     private func updateActiveSkipSegment(at position: Double, duration: Double) {
         let active = currentActiveSegment(at: position, duration: duration)
-        let newID  = active?.id
+        let newID = active?.id
         guard newID != activeSkipSegmentID else { return }
         activeSkipSegmentID = newID
         if let active { showSkipButton(for: active) } else { hideSkipButton() }
@@ -1175,7 +1171,6 @@ public final class PlayerViewController: UIViewController {
 }
 
 // MARK: - MPVRendererDelegate
-
 extension PlayerViewController: MPVRendererDelegate {
     func renderer(_ renderer: MPVRenderer, didUpdatePosition position: Double, duration: Double) {
         updatePosition(position, duration: duration)
@@ -1215,7 +1210,6 @@ extension PlayerViewController: MPVRendererDelegate {
 }
 
 // MARK: - PiP Support
-
 extension PlayerViewController: PiPControllerDelegate {
     public func pipController(_ c: PiPController, willStartPictureInPicture: Bool) {
         renderer.startPiPRendering(); pipController?.updatePlaybackState()

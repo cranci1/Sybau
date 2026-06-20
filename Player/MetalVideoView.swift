@@ -1,8 +1,6 @@
 //
 //  MetalVideoView.swift
-//  test
-//
-//  Created by Francesco on 13/03/26.
+//  Sybau
 //
 
 import UIKit
@@ -35,10 +33,8 @@ final class MetalVideoView: UIView {
         contentScaleFactor = UIScreen.main.scale
         
         metalLayer.isOpaque = true
-        metalLayer.pixelFormat = .bgra8Unorm
+        metalLayer.framebufferOnly = true
         metalLayer.presentsWithTransaction = false
-        metalLayer.colorspace = CGColorSpace(name: CGColorSpace.sRGB)
-        metalLayer.framebufferOnly = false
         
         updateMetalLayerLayout(notify: false)
     }
