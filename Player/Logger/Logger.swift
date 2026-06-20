@@ -15,9 +15,16 @@ public class Logger: @unchecked Sendable {
     private let maxFileSize = 1024 * 512
     private let maxLogEntries = 1000
     
+    private let logFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "dd-MM HH:mm:ss"
+        return f
+    }()
+    
     private init() {
-        let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        logFileURL = tmpDir.appendingPathComponent("logs.txt")
+        let supportDir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
+        logFileURL = supportDir.appendingPathComponent("sybau_player.log")
     }
     
     // MARK: - Public API
@@ -50,10 +57,8 @@ public class Logger: @unchecked Sendable {
     public func getLogs() -> String {
         var result = ""
         queue.sync {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "dd-MM HH:mm:ss"
-            result = logs.map {
-                "[\(formatter.string(from: $0.timestamp))] [\($0.type)] \($0.message)"
+            result = self.logs.map {
+                "[\(self.logFormatter.string(from: $0.timestamp))] [\($0.type)] \($0.message)"
             }.joined(separator: "\n----\n")
         }
         return result
@@ -62,10 +67,8 @@ public class Logger: @unchecked Sendable {
     public func getLogsAsync() async -> String {
         await withCheckedContinuation { continuation in
             queue.async {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "dd-MM HH:mm:ss"
                 let result = self.logs.map {
-                    "[\(formatter.string(from: $0.timestamp))] [\($0.type)] \($0.message)"
+                    "[\(self.logFormatter.string(from: $0.timestamp))] [\($0.type)] \($0.message)"
                 }.joined(separator: "\n----\n")
                 continuation.resume(returning: result)
             }
@@ -92,9 +95,7 @@ public class Logger: @unchecked Sendable {
     // MARK: - Private Helpers
     
     private func saveLogToFile(_ log: LogEntry) {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd-MM HH:mm:ss"
-        let logString = "[\(formatter.string(from: log.timestamp))] [\(log.type)] \(log.message)\n---\n"
+        let logString = "[\(logFormatter.string(from: log.timestamp))] [\(log.type)] \(log.message)\n---\n"
         
         guard let data = logString.data(using: .utf8) else {
             print("Failed to encode log string to UTF-8")
@@ -126,16 +127,14 @@ public class Logger: @unchecked Sendable {
     
     private func truncateLogFile() {
         do {
-            guard let content = try? String(contentsOf: logFileURL, encoding: .utf8), !content.isEmpty else {
-                return
-            }
+            guard let content = try? String(contentsOf: logFileURL, encoding: .utf8),
+                  !content.isEmpty else { return }
             
             let entries = content.components(separatedBy: "\n---\n")
             guard entries.count > 10 else { return }
             
             let keepCount = entries.count / 2
-            let truncatedEntries = Array(entries.suffix(keepCount))
-            let truncatedContent = truncatedEntries.joined(separator: "\n---\n")
+            let truncatedContent = Array(entries.suffix(keepCount)).joined(separator: "\n---\n")
             
             if let truncatedData = truncatedContent.data(using: .utf8) {
                 try truncatedData.write(to: logFileURL)
@@ -148,9 +147,7 @@ public class Logger: @unchecked Sendable {
     
     private func debugLog(_ entry: LogEntry) {
 #if DEBUG
-        let formatter = DateFormatter()
-        formatter.dateFormat = "dd-MM HH:mm:ss"
-        print("[\(formatter.string(from: entry.timestamp))] [\(entry.type)] \(entry.message)")
+        print("[\(logFormatter.string(from: entry.timestamp))] [\(entry.type)] \(entry.message)")
 #endif
     }
 }

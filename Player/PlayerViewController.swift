@@ -1,15 +1,19 @@
 //
 //  PlayerViewController.swift
-//  test
-//
-//  Created by Francesco on 28/09/25.
+//  Sybau
 //
 
 import UIKit
 import SwiftUI
 import AVFoundation
+#if os(tvOS)
+import TVUIKit
+#endif
 
 public final class PlayerViewController: UIViewController {
+    
+    // MARK: - Video surface
+    
     private let videoContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -26,12 +30,13 @@ public final class PlayerViewController: UIViewController {
     
     private let displayLayer = AVSampleBufferDisplayLayer()
     
+    // MARK: - Controls
+    
     private let centerPlayPauseButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let configuration = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
-        let image = UIImage(systemName: "play.fill", withConfiguration: configuration)
-        b.setImage(image, for: .normal)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
+        b.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.backgroundColor = UIColor(white: 0.2, alpha: 0.5)
         b.layer.cornerRadius = 35
@@ -40,8 +45,7 @@ public final class PlayerViewController: UIViewController {
     }()
     
     private let loadingIndicator: UIActivityIndicatorView = {
-        let v: UIActivityIndicatorView
-        v = UIActivityIndicatorView(style: .large)
+        let v = UIActivityIndicatorView(style: .large)
         v.translatesAutoresizingMaskIntoConstraints = false
         v.hidesWhenStopped = true
         v.color = .white
@@ -61,8 +65,10 @@ public final class PlayerViewController: UIViewController {
     private lazy var errorBanner: UIView = {
         let container = UIView()
         container.translatesAutoresizingMaskIntoConstraints = false
-        container.backgroundColor = UIColor { trait -> UIColor in
-            return trait.userInterfaceStyle == .dark ? UIColor(red: 0.85, green: 0.15, blue: 0.15, alpha: 0.95) : UIColor(red: 0.9, green: 0.17, blue: 0.17, alpha: 0.98)
+        container.backgroundColor = UIColor { trait in
+            trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.85, green: 0.15, blue: 0.15, alpha: 0.95)
+            : UIColor(red: 0.90, green: 0.17, blue: 0.17, alpha: 0.98)
         }
         container.layer.cornerRadius = 10
         container.clipsToBounds = true
@@ -87,15 +93,16 @@ public final class PlayerViewController: UIViewController {
         btn.backgroundColor = UIColor(white: 1.0, alpha: 0.12)
         btn.layer.cornerRadius = 6
         
-        if #unavailable(tvOS 15) {
-            btn.contentEdgeInsets = UIEdgeInsets(top: 6, left: 10, bottom: 6, right: 10)
+        if #available(iOS 15.0, tvOS 15.0, *) {
+            var config = UIButton.Configuration.plain()
+            config.contentInsets = NSDirectionalEdgeInsets(top: 6, leading: 10, bottom: 6, trailing: 10)
+            btn.configuration = config
         }
         btn.addTarget(self, action: #selector(viewLogsTapped), for: .touchUpInside)
         
         container.addSubview(icon)
         container.addSubview(label)
         container.addSubview(btn)
-        
         NSLayoutConstraint.activate([
             icon.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 10),
             icon.centerYAnchor.constraint(equalTo: container.centerYAnchor),
@@ -109,7 +116,6 @@ public final class PlayerViewController: UIViewController {
             btn.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -10),
             btn.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
-        
         return container
     }()
     
@@ -117,8 +123,7 @@ public final class PlayerViewController: UIViewController {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         let cfg = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
-        let img = UIImage(systemName: "xmark", withConfiguration: cfg)
-        b.setImage(img, for: .normal)
+        b.setImage(UIImage(systemName: "xmark", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
         return b
@@ -128,8 +133,7 @@ public final class PlayerViewController: UIViewController {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         let cfg = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
-        let img = UIImage(systemName: "pip.enter", withConfiguration: cfg)
-        b.setImage(img, for: .normal)
+        b.setImage(UIImage(systemName: "pip.enter", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
         return b
@@ -139,8 +143,7 @@ public final class PlayerViewController: UIViewController {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .semibold)
-        let img = UIImage(systemName: "gobackward.15", withConfiguration: cfg)
-        b.setImage(img, for: .normal)
+        b.setImage(UIImage(systemName: "gobackward.15", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
         return b
@@ -150,32 +153,30 @@ public final class PlayerViewController: UIViewController {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .semibold)
-        let img = UIImage(systemName: "goforward.15", withConfiguration: cfg)
-        b.setImage(img, for: .normal)
+        b.setImage(UIImage(systemName: "goforward.15", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
         return b
     }()
     
     private let speedIndicatorLabel: UILabel = {
-        let label = UILabel()
-        label.translatesAutoresizingMaskIntoConstraints = false
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 16, weight: .bold)
-        label.textAlignment = .center
-        label.backgroundColor = UIColor(white: 0.2, alpha: 0.8)
-        label.layer.cornerRadius = 20
-        label.clipsToBounds = true
-        label.alpha = 0.0
-        return label
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.textColor = .white
+        l.font = .systemFont(ofSize: 16, weight: .bold)
+        l.textAlignment = .center
+        l.backgroundColor = UIColor(white: 0.2, alpha: 0.8)
+        l.layer.cornerRadius = 20
+        l.clipsToBounds = true
+        l.alpha = 0.0
+        return l
     }()
     
     private let subtitleButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        let img = UIImage(systemName: "captions.bubble", withConfiguration: cfg)
-        b.setImage(img, for: .normal)
+        b.setImage(UIImage(systemName: "captions.bubble", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
         b.isHidden = true
@@ -192,20 +193,28 @@ public final class PlayerViewController: UIViewController {
         b.backgroundColor = UIColor(white: 0.2, alpha: 0.55)
         b.layer.cornerRadius = 18
         b.layer.cornerCurve = .continuous
-#if os(tvOS)
-        if #available(tvOS 15.0, *) {
+        
+        if #available(iOS 15.0, tvOS 15.0, *) {
             var config = UIButton.Configuration.plain()
             config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12)
             b.configuration = config
-        } else {
-            b.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
         }
-#else
-        b.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
-#endif
         b.alpha = 0.0
         b.isHidden = true
         return b
+    }()
+    
+    private let seekTimeLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.textColor = .white
+        l.font = .monospacedDigitSystemFont(ofSize: 14, weight: .semibold)
+        l.textAlignment = .center
+        l.backgroundColor = UIColor(white: 0.15, alpha: 0.85)
+        l.layer.cornerRadius = 8
+        l.clipsToBounds = true
+        l.alpha = 0.0
+        return l
     }()
     
     private let progressContainer: UIView = {
@@ -214,6 +223,7 @@ public final class PlayerViewController: UIViewController {
         v.backgroundColor = .clear
         return v
     }()
+    
     private var progressHostingController: UIHostingController<AnyView>?
     private var lastHostedDuration: Double = 0
     
@@ -224,11 +234,14 @@ public final class PlayerViewController: UIViewController {
     }
     private var progressModel = ProgressModel()
     
-    private lazy var renderer: MPVSoftwareRenderer = {
-        let r = MPVSoftwareRenderer(primaryRenderView: primaryRenderView, pipDisplayLayer: displayLayer)
+    // MARK: - Renderer & state
+    
+    private lazy var renderer: MPVRenderer = {
+        let r = MPVRenderer(primaryRenderView: primaryRenderView, pipDisplayLayer: displayLayer)
         r.delegate = self
         return r
     }()
+    
     public var mediaInfo: MediaInfo?
     private var isSeeking = false
     private var cachedDuration: Double = 0
@@ -243,78 +256,48 @@ public final class PlayerViewController: UIViewController {
     private var currentSubtitleIndex: Int = 0
     private var pendingSubtitleURLs: [String]?
     
+    // MARK: - SubtitleModel
+    
     class SubtitleModel: ObservableObject {
-        private var isLoading: Bool = true
+        private var isLoading = true
         
-        @Published var isVisible: Bool = false {
-            didSet {
-                if !isLoading { saveSubtitleSettings() }
+        @Published var isVisible: Bool = false { didSet { if !isLoading { save() } } }
+        @Published var foregroundColor: UIColor = .white { didSet { if !isLoading { save() } } }
+        @Published var strokeColor: UIColor = .black { didSet { if !isLoading { save() } } }
+        @Published var strokeWidth: CGFloat = 1.0 { didSet { if !isLoading { save() } } }
+        @Published var fontSize: CGFloat = 38.0 { didSet { if !isLoading { save() } } }
+        
+        init() { load(); isLoading = false }
+        
+        private func save() {
+            let d = UserDefaults.standard
+            d.set(isVisible,   forKey: "subtitles_isVisible")
+            d.set(strokeWidth, forKey: "subtitles_strokeWidth")
+            d.set(fontSize,    forKey: "subtitles_fontSize")
+            if let fg = try? NSKeyedArchiver.archivedData(withRootObject: foregroundColor, requiringSecureCoding: false) {
+                d.set(fg, forKey: "subtitles_foregroundColor")
             }
-        }
-        @Published var foregroundColor: UIColor = .white {
-            didSet {
-                if !isLoading { saveSubtitleSettings() }
-            }
-        }
-        @Published var strokeColor: UIColor = .black {
-            didSet {
-                if !isLoading { saveSubtitleSettings() }
-            }
-        }
-        @Published var strokeWidth: CGFloat = 1.0 {
-            didSet {
-                if !isLoading { saveSubtitleSettings() }
-            }
-        }
-        @Published var fontSize: CGFloat = 38.0 {
-            didSet {
-                if !isLoading { saveSubtitleSettings() }
+            if let sc = try? NSKeyedArchiver.archivedData(withRootObject: strokeColor, requiringSecureCoding: false) {
+                d.set(sc, forKey: "subtitles_strokeColor")
             }
         }
         
-        init() {
-            loadSubtitleSettings()
-            isLoading = false
-        }
-        
-        private func saveSubtitleSettings() {
-            let defaults = UserDefaults.standard
-            defaults.set(isVisible, forKey: "subtitles_isVisible")
-            defaults.set(strokeWidth, forKey: "subtitles_strokeWidth")
-            defaults.set(fontSize, forKey: "subtitles_fontSize")
-            
-            if let foregroundData = try? NSKeyedArchiver.archivedData(withRootObject: foregroundColor, requiringSecureCoding: false) {
-                defaults.set(foregroundData, forKey: "subtitles_foregroundColor")
+        private func load() {
+            let d = UserDefaults.standard
+            if d.object(forKey: "subtitles_isVisible") != nil {
+                isVisible = d.bool(forKey: "subtitles_isVisible")
             }
-            if let strokeData = try? NSKeyedArchiver.archivedData(withRootObject: strokeColor, requiringSecureCoding: false) {
-                defaults.set(strokeData, forKey: "subtitles_strokeColor")
+            let w = CGFloat(d.double(forKey: "subtitles_strokeWidth"))
+            strokeWidth = w > 0 ? w : 1.0
+            let s = CGFloat(d.double(forKey: "subtitles_fontSize"))
+            fontSize = s > 0 ? s : 38.0
+            if let fg = d.data(forKey: "subtitles_foregroundColor"),
+               let c = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: fg) {
+                foregroundColor = c
             }
-        }
-        
-        private func loadSubtitleSettings() {
-            let defaults = UserDefaults.standard
-            
-            if defaults.object(forKey: "subtitles_isVisible") != nil {
-                isVisible = defaults.bool(forKey: "subtitles_isVisible")
-            }
-            
-            if defaults.object(forKey: "subtitles_strokeWidth") != nil {
-                let width = CGFloat(defaults.double(forKey: "subtitles_strokeWidth"))
-                strokeWidth = width > 0 ? width : 1.0
-            }
-            
-            if defaults.object(forKey: "subtitles_fontSize") != nil {
-                let size = CGFloat(defaults.double(forKey: "subtitles_fontSize"))
-                fontSize = size > 0 ? size : 38.0
-            }
-            
-            if let foregroundData = defaults.data(forKey: "subtitles_foregroundColor"),
-               let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: foregroundData) {
-                foregroundColor = color
-            }
-            if let strokeData = defaults.data(forKey: "subtitles_strokeColor"),
-               let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: strokeData) {
-                strokeColor = color
+            if let sc = d.data(forKey: "subtitles_strokeColor"),
+               let c = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: sc) {
+                strokeColor = c
             }
         }
     }
@@ -322,12 +305,18 @@ public final class PlayerViewController: UIViewController {
     
     private var originalSpeed: Double = 1.0
     private var holdGesture: UILongPressGestureRecognizer?
-    
     private var controlsHideWorkItem: DispatchWorkItem?
-    private var controlsVisible: Bool = true
+    private var controlsVisible = true
     private var pendingSeekTime: Double?
     private var introDBSegments: [IntroDBSegment] = []
     private var activeSkipSegmentID: String?
+    
+#if !os(tvOS)
+    private let holdHaptic = UIImpactFeedbackGenerator(style: .medium)
+    private let skipHaptic  = UIImpactFeedbackGenerator(style: .light)
+#endif
+    
+    // MARK: - View lifecycle
     
     public override func viewDidLoad() {
         super.viewDidLoad()
@@ -335,7 +324,10 @@ public final class PlayerViewController: UIViewController {
         
 #if !os(tvOS)
         modalPresentationCapturesStatusBarAppearance = true
+        holdHaptic.prepare()
+        skipHaptic.prepare()
 #endif
+        
         setupLayout()
         setupActions()
         setupHoldGesture()
@@ -346,7 +338,7 @@ public final class PlayerViewController: UIViewController {
             try renderer.start()
         } catch {
             Logger.shared.log("Failed to start MPV renderer: \(error)", type: "Error")
-            presentErrorAlert(title: "Playback Error", message: "Failed to start renderer: \(error)")
+            presentStartupErrorAlert(message: "Failed to start renderer: \(error)")
         }
         
         pipController = PiPController(sampleBufferDisplayLayer: displayLayer)
@@ -358,7 +350,7 @@ public final class PlayerViewController: UIViewController {
             load(url: url, preset: preset, headers: initialHeaders)
         }
         
-        updateProgressHostingController()
+        installProgressHostingControllerIfNeeded()
         
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
@@ -374,11 +366,7 @@ public final class PlayerViewController: UIViewController {
     public override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
     
     public override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if UserDefaults.standard.bool(forKey: "alwaysLandscape") {
-            return .landscape
-        } else {
-            return .all
-        }
+        UserDefaults.standard.bool(forKey: "alwaysLandscape") ? .landscape : .all
     }
     
     public override func viewWillAppear(_ animated: Bool) {
@@ -394,21 +382,17 @@ public final class PlayerViewController: UIViewController {
     
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        
         primaryRenderView.frame = videoContainer.bounds
         primaryRenderView.layoutIfNeeded()
-        
-        displayLayer.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
-        displayLayer.isHidden = false
-        displayLayer.opacity = 0.001
-        
-        if let gradientLayer = controlsOverlayView.layer.sublayers?.first(where: { $0.name == "gradientLayer" }) {
-            gradientLayer.frame = controlsOverlayView.bounds
+        displayLayer.frame     = CGRect(x: 0, y: 0, width: 1, height: 1)
+        displayLayer.isHidden  = false
+        displayLayer.opacity   = 0.001
+        if let grad = controlsOverlayView.layer.sublayers?
+            .first(where: { $0.name == "gradientLayer" }) {
+            grad.frame = controlsOverlayView.bounds
         }
-        
         CATransaction.commit()
     }
     
@@ -416,21 +400,18 @@ public final class PlayerViewController: UIViewController {
         super.viewWillTransition(to: size, with: coordinator)
         coordinator.animate(alongsideTransition: { [weak self] context in
             guard let self else { return }
-            let previousTransform = self.primaryRenderView.transform
-            self.primaryRenderView.transform = previousTransform.scaledBy(x: 0.985, y: 0.985)
-            
+            let prev = self.primaryRenderView.transform
+            self.primaryRenderView.transform = prev.scaledBy(x: 0.985, y: 0.985)
             UIView.animateKeyframes(
-                withDuration: context.transitionDuration,
-                delay: 0,
+                withDuration: context.transitionDuration, delay: 0,
                 options: [.beginFromCurrentState, .calculationModeCubic, .allowUserInteraction]
             ) {
                 UIView.addKeyframe(withRelativeStartTime: 0.0, relativeDuration: 0.75) {
                     self.videoContainer.layoutIfNeeded()
                     self.primaryRenderView.layoutIfNeeded()
                 }
-                
                 UIView.addKeyframe(withRelativeStartTime: 0.2, relativeDuration: 0.8) {
-                    self.primaryRenderView.transform = previousTransform
+                    self.primaryRenderView.transform = prev
                 }
             }
         }, completion: { [weak self] _ in
@@ -440,15 +421,15 @@ public final class PlayerViewController: UIViewController {
     
     deinit {
         pipController?.delegate = nil
-        if pipController?.isPictureInPictureActive == true {
-            pipController?.stopPictureInPicture()
-        }
+        if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
         pipController?.invalidate()
         renderer.stopPiPRendering()
         renderer.stop()
         displayLayer.removeFromSuperlayer()
         NotificationCenter.default.removeObserver(self)
     }
+    
+    // MARK: - Public init
     
     public convenience init(url: URL, preset: PlayerPreset, headers: [String: String]? = nil, subtitles: [String]? = nil) {
         self.init(nibName: nil, bundle: nil)
@@ -458,43 +439,41 @@ public final class PlayerViewController: UIViewController {
         self.initialSubtitles = subtitles
     }
     
+    // MARK: - Load
+    
     func load(url: URL, preset: PlayerPreset, headers: [String: String]? = nil) {
         renderer.load(url: url, with: preset, headers: headers)
         if let info = mediaInfo {
             prepareSeekToLastPosition(for: info)
             fetchIntroDBSegments(for: info)
         }
-        
         if let subs = initialSubtitles, !subs.isEmpty {
             pendingSubtitleURLs = subs
         }
     }
     
-    private func prepareSeekToLastPosition(for mediaInfo: MediaInfo) {
+    private func prepareSeekToLastPosition(for info: MediaInfo) {
         let lastPlayedTime: Double
-        
-        switch mediaInfo {
+        switch info {
         case .movie(let id, let title):
             lastPlayedTime = ProgressManager.shared.getMovieCurrentTime(movieId: id, title: title)
-            
-        case .episode(let showId, _, let seasonNumber, let episodeNumber):
-            lastPlayedTime = ProgressManager.shared.getEpisodeCurrentTime(showId: showId, seasonNumber: seasonNumber, episodeNumber: episodeNumber)
+        case .episode(let showId, _, let season, let episode):
+            lastPlayedTime = ProgressManager.shared.getEpisodeCurrentTime(showId: showId, seasonNumber: season, episodeNumber: episode)
+        }
+        guard lastPlayedTime != 0 else { return }
+        
+        let progress: Double
+        switch info {
+        case .movie(let id, let title):
+            progress = ProgressManager.shared.getMovieProgress(movieId: id, title: title)
+        case .episode(let showId, _, let season, let episode):
+            progress = ProgressManager.shared.getEpisodeProgress(showId: showId, seasonNumber: season, episodeNumber: episode)
         }
         
-        if lastPlayedTime != 0 {
-            let progress: Double
-            switch mediaInfo {
-            case .movie(let id, let title):
-                progress = ProgressManager.shared.getMovieProgress(movieId: id, title: title)
-            case .episode(let showId, _, let seasonNumber, let episodeNumber):
-                progress = ProgressManager.shared.getEpisodeProgress(showId: showId, seasonNumber: seasonNumber, episodeNumber: episodeNumber)
-            }
-            
-            if progress < 0.95 {
-                pendingSeekTime = lastPlayedTime
-            }
-        }
+        if progress < 0.95 { pendingSeekTime = lastPlayedTime }
     }
+    
+    // MARK: - Layout
     
     private func setupLayout() {
         view.addSubview(videoContainer)
@@ -505,13 +484,14 @@ public final class PlayerViewController: UIViewController {
         displayLayer.backgroundColor = UIColor.black.cgColor
         displayLayer.opacity = 0.001
         displayLayer.isHidden = false
-        
         videoContainer.layer.addSublayer(displayLayer)
+        
         videoContainer.addSubview(controlsOverlayView)
         videoContainer.addSubview(loadingIndicator)
         view.addSubview(errorBanner)
         videoContainer.addSubview(centerPlayPauseButton)
         videoContainer.addSubview(progressContainer)
+        videoContainer.addSubview(seekTimeLabel)
         videoContainer.addSubview(closeButton)
         videoContainer.addSubview(pipButton)
         videoContainer.addSubview(skipBackwardButton)
@@ -536,13 +516,16 @@ public final class PlayerViewController: UIViewController {
             progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             progressContainer.heightAnchor.constraint(equalToConstant: 44),
             
+            seekTimeLabel.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor),
+            seekTimeLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -6),
+            seekTimeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
+            seekTimeLabel.heightAnchor.constraint(equalToConstant: 28),
+            
             controlsOverlayView.topAnchor.constraint(equalTo: videoContainer.topAnchor),
             controlsOverlayView.leadingAnchor.constraint(equalTo: videoContainer.leadingAnchor),
             controlsOverlayView.trailingAnchor.constraint(equalTo: videoContainer.trailingAnchor),
             controlsOverlayView.bottomAnchor.constraint(equalTo: videoContainer.bottomAnchor),
-        ])
-        
-        NSLayoutConstraint.activate([
+            
             errorBanner.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
             errorBanner.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             errorBanner.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.92),
@@ -581,14 +564,14 @@ public final class PlayerViewController: UIViewController {
             speedIndicatorLabel.widthAnchor.constraint(equalToConstant: 100),
             speedIndicatorLabel.heightAnchor.constraint(equalToConstant: 40),
             
-            subtitleButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor, constant: 0),
-            subtitleButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -8),
-            subtitleButton.widthAnchor.constraint(equalToConstant: 32),
-            subtitleButton.heightAnchor.constraint(equalToConstant: 32),
-            
             skipSegmentButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
             skipSegmentButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -14),
-            skipSegmentButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 36)
+            skipSegmentButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
+            
+            subtitleButton.trailingAnchor.constraint(equalTo: skipSegmentButton.leadingAnchor, constant: -8),
+            subtitleButton.centerYAnchor.constraint(equalTo: skipSegmentButton.centerYAnchor),
+            subtitleButton.widthAnchor.constraint(equalToConstant: 32),
+            subtitleButton.heightAnchor.constraint(equalToConstant: 32),
         ])
     }
     
@@ -599,6 +582,7 @@ public final class PlayerViewController: UIViewController {
         skipBackwardButton.addTarget(self, action: #selector(skipBackwardTapped), for: .touchUpInside)
         skipForwardButton.addTarget(self, action: #selector(skipForwardTapped), for: .touchUpInside)
         skipSegmentButton.addTarget(self, action: #selector(skipSegmentTapped), for: .touchUpInside)
+        
         let tap = UITapGestureRecognizer(target: self, action: #selector(containerTapped))
         videoContainer.addGestureRecognizer(tap)
     }
@@ -606,46 +590,65 @@ public final class PlayerViewController: UIViewController {
     private func setupHoldGesture() {
         holdGesture = UILongPressGestureRecognizer(target: self, action: #selector(handleHoldGesture(_:)))
         holdGesture?.minimumPressDuration = 0.5
-        if let holdGesture = holdGesture {
-            videoContainer.addGestureRecognizer(holdGesture)
+        if let g = holdGesture { videoContainer.addGestureRecognizer(g) }
+    }
+    
+    // MARK: - tvOS Focus
+    /// idk if ts works
+    
+#if os(tvOS)
+    public override func didUpdateFocus(in context: UIFocusUpdateContext, with coordinator: UIFocusAnimationCoordinator) {
+        super.didUpdateFocus(in: context, with: coordinator)
+        guard let next = context.nextFocusedView else { return }
+        coordinator.addCoordinatedAnimations({
+            next.transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
+        }, completion: {})
+        if let prev = context.previouslyFocusedView {
+            coordinator.addCoordinatedAnimations({
+                prev.transform = .identity
+            }, completion: {})
         }
     }
     
+    public override var preferredFocusEnvironments: [UIFocusEnvironment] {
+        [centerPlayPauseButton, skipBackwardButton, skipForwardButton,
+         pipButton, closeButton, subtitleButton]
+    }
+#endif
+    
+    // MARK: - Hold gesture
+    
     @objc private func handleHoldGesture(_ gesture: UILongPressGestureRecognizer) {
         switch gesture.state {
-        case .began:
-            beginHoldSpeed()
-        case .ended, .cancelled:
-            endHoldSpeed()
-        default:
-            break
+        case .began:   beginHoldSpeed()
+        case .ended, .cancelled: endHoldSpeed()
+        default: break
         }
     }
     
     private func beginHoldSpeed() {
         originalSpeed = renderer.getSpeed()
-        let holdSpeed = UserDefaults.standard.float(forKey: "holdSpeedPlayer")
-        let targetSpeed = holdSpeed > 0 ? Double(holdSpeed) : 2.0
-        renderer.setSpeed(targetSpeed)
-        
+        let pref = UserDefaults.standard.float(forKey: "holdSpeedPlayer")
+        let target = pref > 0 ? Double(pref) : 2.0
+        renderer.setSpeed(target)
+#if !os(tvOS)
+        holdHaptic.impactOccurred()
+#endif
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            self.speedIndicatorLabel.text = String(format: "%.1fx", targetSpeed)
-            UIView.animate(withDuration: 0.2) {
-                self.speedIndicatorLabel.alpha = 1.0
-            }
+            guard let self else { return }
+            self.speedIndicatorLabel.text = String(format: "%.1fx", target)
+            UIView.animate(withDuration: 0.2) { self.speedIndicatorLabel.alpha = 1.0 }
         }
     }
     
     private func endHoldSpeed() {
         renderer.setSpeed(originalSpeed)
-        
         DispatchQueue.main.async { [weak self] in
-            UIView.animate(withDuration: 0.2) {
-                self?.speedIndicatorLabel.alpha = 0.0
-            }
+            UIView.animate(withDuration: 0.2) { self?.speedIndicatorLabel.alpha = 0.0 }
         }
     }
+    
+    // MARK: - Playback controls
     
     @objc private func playPauseTapped() {
         if renderer.isPausedState {
@@ -657,25 +660,35 @@ public final class PlayerViewController: UIViewController {
         }
     }
     
-    @objc private func centerPlayPauseTapped() {
-        playPauseTapped()
+    @objc private func centerPlayPauseTapped() { playPauseTapped() }
+    
+    private var skipInterval: Double {
+        let stored = UserDefaults.standard.double(forKey: "skipIntervalSeconds")
+        return stored > 0 ? stored : 15.0
     }
     
     @objc private func skipBackwardTapped() {
-        renderer.seek(by: -15)
+        renderer.seek(by: -skipInterval)
         animateButtonTap(skipBackwardButton)
+#if !os(tvOS)
+        skipHaptic.impactOccurred()
+#endif
         showControlsTemporarily()
     }
     
     @objc private func skipForwardTapped() {
-        renderer.seek(by: 15)
+        renderer.seek(by: skipInterval)
         animateButtonTap(skipForwardButton)
+#if !os(tvOS)
+        skipHaptic.impactOccurred()
+#endif
         showControlsTemporarily()
     }
     
+    // MARK: - Subtitle menu
+    
     private func updateSubtitleMenu() {
-        var trackActions: [UIAction] = []
-        
+        var actions: [UIAction] = []
         let disableAction = UIAction(
             title: "Disable Subtitles",
             image: UIImage(systemName: "xmark"),
@@ -686,124 +699,82 @@ public final class PlayerViewController: UIViewController {
             self?.updateSubtitleButtonAppearance()
             self?.updateSubtitleMenu()
         }
-        trackActions.append(disableAction)
+        actions.append(disableAction)
         
-        for (index, _) in subtitleURLs.enumerated() {
-            let isSelected = subtitleModel.isVisible && currentSubtitleIndex == index
-            let action = UIAction(
-                title: "Subtitle \(index + 1)",
+        for (i, _) in subtitleURLs.enumerated() {
+            let selected = subtitleModel.isVisible && currentSubtitleIndex == i
+            actions.append(UIAction(
+                title: "Subtitle \(i + 1)",
                 image: UIImage(systemName: "captions.bubble"),
-                state: isSelected ? .on : .off
+                state: selected ? .on : .off
             ) { [weak self] _ in
-                self?.currentSubtitleIndex = index
+                self?.currentSubtitleIndex = i
                 self?.subtitleModel.isVisible = true
                 self?.loadCurrentSubtitle()
                 self?.renderer.setSubtitleVisible(true)
                 self?.updateSubtitleButtonAppearance()
                 self?.updateSubtitleMenu()
-            }
-            trackActions.append(action)
+            })
         }
         
-        let trackMenu = UIMenu(title: "Select Track", image: UIImage(systemName: "list.bullet"), children: trackActions)
-        
+        let trackMenu = UIMenu(title: "Select Track", image: UIImage(systemName: "list.bullet"), children: actions)
         let appearanceMenu = createAppearanceMenu()
-        
-        let mainMenu = UIMenu(title: "Subtitles", children: [trackMenu, appearanceMenu])
-        subtitleButton.menu = mainMenu
+        subtitleButton.menu = UIMenu(title: "Subtitles", children: [trackMenu, appearanceMenu])
     }
     
     private func createAppearanceMenu() -> UIMenu {
-        let foregroundColors: [(String, UIColor)] = [
-            ("White", .white),
-            ("Yellow", .yellow),
-            ("Cyan", .cyan),
-            ("Green", .green),
-            ("Magenta", .magenta)
-        ]
+        func colorAction(title: String, color: UIColor, current: UIColor, set: @escaping (UIColor) -> Void) -> UIAction {
+            UIAction(title: title, state: current == color ? .on : .off) { [weak self] _ in
+                set(color); self?.updateCurrentSubtitleAppearance(); self?.updateSubtitleMenu()
+            }
+        }
         
-        let foregroundColorActions = foregroundColors.map { (name, color) in
-            UIAction(
-                title: name,
-                state: subtitleModel.foregroundColor == color ? .on : .off
-            ) { [weak self] _ in
-                self?.subtitleModel.foregroundColor = color
+        let fgMenu = UIMenu(title: "Text Color", image: UIImage(systemName: "paintpalette"),
+                            children: [
+                                colorAction(title: "White", color: .white, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
+                                colorAction(title: "Yellow", color: .yellow, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
+                                colorAction(title: "Cyan", color: .cyan, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0 },
+                                colorAction(title: "Green", color: .green, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
+                                colorAction(title: "Magenta", color: .magenta, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0}
+                            ])
+        
+        let scMenu = UIMenu(title: "Stroke Color", image: UIImage(systemName: "pencil.tip"),
+                            children: [
+                                colorAction(title: "Black", color: .black, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0},
+                                colorAction(title: "Dark Gray", color: .darkGray, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0},
+                                colorAction(title: "White", color: .white, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0},
+                                colorAction(title: "None", color: .clear, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0}
+                            ])
+        
+        func widthAction(_ name: String, _ w: CGFloat) -> UIAction {
+            UIAction(title: name, state: subtitleModel.strokeWidth == w ? .on : .off) { [weak self] _ in
+                self?.subtitleModel.strokeWidth = w
                 self?.updateCurrentSubtitleAppearance()
                 self?.updateSubtitleMenu()
             }
         }
+        let swMenu = UIMenu(title: "Stroke Width", image: UIImage(systemName: "lineweight"),
+                            children: [
+                                widthAction("None", 0), widthAction("Thin", 0.5),
+                                widthAction("Normal", 1), widthAction("Medium", 1.5),
+                                widthAction("Thick", 2)
+                            ])
         
-        let foregroundColorMenu = UIMenu(title: "Text Color", image: UIImage(systemName: "paintpalette"), children: foregroundColorActions)
-        
-        let strokeColors: [(String, UIColor)] = [
-            ("Black", .black),
-            ("Dark Gray", .darkGray),
-            ("White", .white),
-            ("None", .clear)
-        ]
-        
-        let strokeColorActions = strokeColors.map { (name, color) in
-            UIAction(
-                title: name,
-                state: subtitleModel.strokeColor == color ? .on : .off
-            ) { [weak self] _ in
-                self?.subtitleModel.strokeColor = color
+        func sizeAction(_ name: String, _ s: CGFloat) -> UIAction {
+            UIAction(title: name, state: subtitleModel.fontSize == s ? .on : .off) { [weak self] _ in
+                self?.subtitleModel.fontSize = s
                 self?.updateCurrentSubtitleAppearance()
                 self?.updateSubtitleMenu()
             }
         }
+        let fsMenu = UIMenu(title: "Font Size", image: UIImage(systemName: "textformat.size"),
+                            children: [
+                                sizeAction("Small", 34), sizeAction("Medium", 38),
+                                sizeAction("Large", 42), sizeAction("Extra Large", 46),
+                                sizeAction("Huge", 56),  sizeAction("Extra Huge", 66)
+                            ])
         
-        let strokeColorMenu = UIMenu(title: "Stroke Color", image: UIImage(systemName: "pencil.tip"), children: strokeColorActions)
-        
-        let strokeWidths: [(String, CGFloat)] = [
-            ("None", 0.0),
-            ("Thin", 0.5),
-            ("Normal", 1.0),
-            ("Medium", 1.5),
-            ("Thick", 2.0)
-        ]
-        
-        let strokeWidthActions = strokeWidths.map { (name, width) in
-            UIAction(
-                title: name,
-                state: subtitleModel.strokeWidth == width ? .on : .off
-            ) { [weak self] _ in
-                self?.subtitleModel.strokeWidth = width
-                self?.updateCurrentSubtitleAppearance()
-                self?.updateSubtitleMenu()
-            }
-        }
-        
-        let strokeWidthMenu = UIMenu(title: "Stroke Width", image: UIImage(systemName: "lineweight"), children: strokeWidthActions)
-        
-        let fontSizes: [(String, CGFloat)] = [
-            ("Small", 34.0),
-            ("Medium", 38.0),
-            ("Large", 42.0),
-            ("Extra Large", 46.0),
-            ("Huge", 56.0),
-            ("Extra Huge", 66.0)
-        ]
-        
-        let fontSizeActions = fontSizes.map { (name, size) in
-            UIAction(
-                title: name,
-                state: subtitleModel.fontSize == size ? .on : .off
-            ) { [weak self] _ in
-                self?.subtitleModel.fontSize = size
-                self?.updateCurrentSubtitleAppearance()
-                self?.updateSubtitleMenu()
-            }
-        }
-        
-        let fontSizeMenu = UIMenu(title: "Font Size", image: UIImage(systemName: "textformat.size"), children: fontSizeActions)
-        
-        return UIMenu(title: "Appearance", image: UIImage(systemName: "paintbrush"), children: [
-            foregroundColorMenu,
-            strokeColorMenu,
-            strokeWidthMenu,
-            fontSizeMenu
-        ])
+        return UIMenu(title: "Appearance", image: UIImage(systemName: "paintbrush"), children: [fgMenu, scMenu, swMenu, fsMenu])
     }
     
     private func updateCurrentSubtitleAppearance() {
@@ -812,83 +783,88 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func updateSubtitleButtonAppearance() {
-        let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        let imageName = subtitleModel.isVisible ? "captions.bubble.fill" : "captions.bubble"
-        let img = UIImage(systemName: imageName, withConfiguration: cfg)
-        subtitleButton.setImage(img, for: .normal)
+        let cfg  = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        let name = subtitleModel.isVisible ? "captions.bubble.fill" : "captions.bubble"
+        subtitleButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
     }
     
     private func loadSubtitles(_ urls: [String]) {
         subtitleURLs = urls
-        
-        if !urls.isEmpty {
-            subtitleButton.isHidden = false
-            currentSubtitleIndex = 0
-            subtitleModel.isVisible = true
-            renderer.applySubtitleStyle(currentSubtitleStyle())
-            renderer.setSubtitleVisible(true)
-            loadCurrentSubtitle()
-            updateSubtitleButtonAppearance()
-            updateSubtitleMenu()
-        }
+        guard !urls.isEmpty else { return }
+        subtitleButton.isHidden = false
+        currentSubtitleIndex = 0
+        subtitleModel.isVisible = true
+        renderer.applySubtitleStyle(currentSubtitleStyle())
+        renderer.setSubtitleVisible(true)
+        loadCurrentSubtitle()
+        updateSubtitleButtonAppearance()
+        updateSubtitleMenu()
     }
     
     private func loadCurrentSubtitle() {
         guard currentSubtitleIndex < subtitleURLs.count else { return }
         let urlString = subtitleURLs[currentSubtitleIndex]
-        guard URL(string: urlString) != nil else {
-            Logger.shared.log("Invalid subtitle URL: \(urlString)", type: "Error")
-            return
-        }
-        
         renderer.applySubtitleStyle(currentSubtitleStyle())
         renderer.clearCurrentSubtitleTrack()
         renderer.addSubtitleTrack(urlString: urlString)
         renderer.setSubtitleVisible(subtitleModel.isVisible)
-        Logger.shared.log("Loading subtitle track through mpv/libass: \(urlString)", type: "Info")
+        Logger.shared.log("Loading subtitle: \(urlString)", type: "Info")
     }
     
     private func currentSubtitleStyle() -> SubtitleStyle {
-        SubtitleStyle(
-            foregroundColor: subtitleModel.foregroundColor,
-            strokeColor: subtitleModel.strokeColor,
-            strokeWidth: subtitleModel.strokeWidth,
-            fontSize: subtitleModel.fontSize,
-            isVisible: subtitleModel.isVisible
-        )
+        SubtitleStyle(foregroundColor: subtitleModel.foregroundColor,
+                      strokeColor: subtitleModel.strokeColor,
+                      strokeWidth: subtitleModel.strokeWidth,
+                      fontSize: subtitleModel.fontSize,
+                      isVisible: subtitleModel.isVisible)
     }
     
+    // MARK: - Button animation
+    
     private func animateButtonTap(_ button: UIButton) {
-        UIView.animate(withDuration: 0.1, delay: 0, options: [.curveEaseOut]) {
+        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseOut) {
             button.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
         } completion: { _ in
-            UIView.animate(withDuration: 0.15, delay: 0, options: [.curveEaseIn]) {
+            UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseIn) {
                 button.transform = .identity
             }
         }
     }
     
-    private func updateProgressHostingController() {
+    // MARK: - Progress slider
+    
+    private func installProgressHostingControllerIfNeeded() {
+        guard progressHostingController == nil else { return }
+        
         struct ProgressHostView: View {
             @ObservedObject var model: ProgressModel
             var onEditingChanged: (Bool) -> Void
             var body: some View {
-                MusicProgressSlider(value: Binding(get: { model.position }, set: { model.position = $0 }), inRange: 0...max(model.duration, 1.0), activeFillColor: .white, fillColor: .white, textColor: .white.opacity(0.7), emptyColor: .white.opacity(0.3), height: 33, highlights: model.highlights, onEditingChanged: onEditingChanged)
+                MusicProgressSlider(
+                    value: Binding(get: { model.position }, set: { model.position = $0 }),
+                    inRange: 0...max(model.duration, 1.0),
+                    activeFillColor: .white, fillColor: .white,
+                    textColor: .white.opacity(0.7), emptyColor: .white.opacity(0.3),
+                    height: 33, highlights: model.highlights,
+                    onEditingChanged: onEditingChanged
+                )
             }
         }
         
-        if progressHostingController != nil {
-            return
-        }
-        
-        let host = UIHostingController(rootView: AnyView(ProgressHostView(model: progressModel, onEditingChanged: { [weak self] editing in
-            guard let self = self else { return }
-            self.isSeeking = editing
-            if !editing {
-                self.renderer.seek(to: max(0, self.progressModel.position))
+        let host = UIHostingController(rootView: AnyView(
+            ProgressHostView(model: progressModel) { [weak self] editing in
+                guard let self else { return }
+                self.isSeeking = editing
+                if editing {
+                    self.controlsHideWorkItem?.cancel()
+                    self.showControlsIfNeeded()
+                } else {
+                    self.renderer.seek(to: max(0, self.progressModel.position))
+                    self.showControlsTemporarily()
+                    UIView.animate(withDuration: 0.2) { self.seekTimeLabel.alpha = 0.0 }
+                }
             }
-        })))
-        
+        ))
         progressHostingController = host
         addChild(host)
         host.view.translatesAutoresizingMaskIntoConstraints = false
@@ -904,43 +880,47 @@ public final class PlayerViewController: UIViewController {
         host.didMove(toParent: self)
     }
     
+    // MARK: - Play/pause button
+    
     private func updatePlayPauseButton(isPaused: Bool) {
-        DispatchQueue.main.async {
-            let config = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let cfg  = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
             let name = isPaused ? "play.fill" : "pause.fill"
-            let img = UIImage(systemName: name, withConfiguration: config)
-            self.centerPlayPauseButton.setImage(img, for: .normal)
+            
+            self.centerPlayPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
             self.centerPlayPauseButton.isHidden = false
             
-            UIView.animate(withDuration: 0.2, delay: 0, options: [.curveEaseInOut]) {
+            UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseInOut) {
                 self.centerPlayPauseButton.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
             } completion: { _ in
                 UIView.animate(withDuration: 0.15) {
                     self.centerPlayPauseButton.transform = .identity
                 }
             }
-            
             self.showControlsTemporarily()
         }
     }
     
-    // MARK: - Error display helpers
-    private func presentErrorAlert(title: String, message: String) {
-        DispatchQueue.main.async {
-            let ac = UIAlertController(title: title, message: message, preferredStyle: .alert)
-            ac.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
-            ac.addAction(UIAlertAction(title: "View Logs", style: .default, handler: { _ in
-                self.viewLogsTapped()
-            }))
-            self.showErrorBanner(message)
+    // MARK: - Error display
+    
+    private func presentStartupErrorAlert(message: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let ac = UIAlertController(title: "Playback Error", message: message, preferredStyle: .alert)
+            ac.addAction(UIAlertAction(title: "OK", style: .default))
+            ac.addAction(UIAlertAction(title: "View Logs", style: .default) { [weak self] _ in
+                self?.viewLogsTapped()
+            })
             if self.presentedViewController == nil {
-                self.present(ac, animated: true, completion: nil)
+                self.present(ac, animated: true)
             }
         }
     }
     
     private func showTransientErrorBanner(_ message: String, duration: TimeInterval = 4.0) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             self.showErrorBanner(message)
             NSObject.cancelPreviousPerformRequests(withTarget: self, selector: #selector(self.hideErrorBanner), object: nil)
             self.perform(#selector(self.hideErrorBanner), with: nil, afterDelay: duration)
@@ -948,9 +928,12 @@ public final class PlayerViewController: UIViewController {
     }
     
     @objc private func hideErrorBanner() {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             UIView.animate(withDuration: 0.25) {
                 self.errorBanner.alpha = 0.0
+            } completion: { _ in
+                self.errorBanner.transform = .identity
             }
         }
     }
@@ -967,25 +950,27 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func showErrorBanner(_ message: String) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             guard let label = self.errorBanner.viewWithTag(101) as? UILabel else { return }
             label.text = message
+            
+            self.errorBanner.transform = .identity
             self.view.bringSubviewToFront(self.errorBanner)
-            UIView.animate(withDuration: 0.28, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.6, options: [.curveEaseOut], animations: {
+            UIView.animate(withDuration: 0.28, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0.6, options: .curveEaseOut) {
                 self.errorBanner.alpha = 1.0
                 self.errorBanner.transform = CGAffineTransform(translationX: 0, y: 4)
-            }, completion: nil)
+            }
         }
     }
     
     @objc private func viewLogsTapped() {
         Task { @MainActor in
             let logs = await Logger.shared.getLogsAsync()
-            let vc = UIViewController()
-            vc.view.backgroundColor = UIColor(named: "background")
-            let tv = UITextView()
+            let vc   = UIViewController()
+            vc.view.backgroundColor = UIColor.black
+            let tv   = UITextView()
             tv.translatesAutoresizingMaskIntoConstraints = false
-            
 #if !os(tvOS)
             tv.isEditable = false
 #endif
@@ -1000,13 +985,10 @@ public final class PlayerViewController: UIViewController {
             ])
             vc.navigationItem.title = "Logs"
             let nav = UINavigationController(rootViewController: vc)
-            
 #if !os(tvOS)
             nav.modalPresentationStyle = .pageSheet
 #endif
-            
             let close: UIBarButtonItem
-            
 #if compiler(>=6.0)
             if #available(iOS 26.0, tvOS 26.0, *) {
                 close = UIBarButtonItem(title: "Close", style: .prominent, target: self, action: #selector(dismissLogs))
@@ -1017,51 +999,39 @@ public final class PlayerViewController: UIViewController {
             close = UIBarButtonItem(title: "Close", style: .done, target: self, action: #selector(dismissLogs))
 #endif
             vc.navigationItem.rightBarButtonItem = close
-            self.present(nav, animated: true, completion: nil)
+            present(nav, animated: true)
         }
     }
     
-    @objc private func dismissLogs() {
-        dismiss(animated: true, completion: nil)
-    }
+    @objc private func dismissLogs() { dismiss(animated: true) }
+    
+    // MARK: - Controls visibility
     
     @objc private func containerTapped() {
-        if controlsVisible {
-            hideControls()
-        } else {
-            showControlsTemporarily()
-        }
+        controlsVisible ? hideControls() : showControlsTemporarily()
     }
     
-    @objc private func skipSegmentTapped() {
-        guard let segment = currentActiveSegment(at: cachedPosition) else { return }
-        guard let target = resolvedEnd(for: segment, duration: cachedDuration) else { return }
-        renderer.seek(to: max(0, target))
-        showControlsTemporarily()
+    private func showControlsIfNeeded() {
+        guard !controlsVisible else { return }
+        controlsVisible = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
+                self.setControlsAlpha(1.0)
+            }
+        }
     }
     
     private func showControlsTemporarily() {
         controlsHideWorkItem?.cancel()
         controlsVisible = true
-        
-        DispatchQueue.main.async {
-            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
-                self.centerPlayPauseButton.alpha = 1.0
-                self.controlsOverlayView.alpha = 1.0
-                self.progressContainer.alpha = 1.0
-                self.closeButton.alpha = 1.0
-                self.pipButton.alpha = 1.0
-                self.skipBackwardButton.alpha = 1.0
-                self.skipForwardButton.alpha = 1.0
-                if !self.subtitleButton.isHidden {
-                    self.subtitleButton.alpha = 1.0
-                }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
+                self.setControlsAlpha(1.0)
             }
         }
-        
-        let work = DispatchWorkItem { [weak self] in
-            self?.hideControls()
-        }
+        let work = DispatchWorkItem { [weak self] in self?.hideControls() }
         controlsHideWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: work)
     }
@@ -1069,33 +1039,35 @@ public final class PlayerViewController: UIViewController {
     private func hideControls() {
         controlsHideWorkItem?.cancel()
         controlsVisible = false
-        
-        DispatchQueue.main.async {
-            UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseIn]) {
-                self.centerPlayPauseButton.alpha = 0.0
-                self.controlsOverlayView.alpha = 0.0
-                self.progressContainer.alpha = 0.0
-                self.closeButton.alpha = 0.0
-                self.pipButton.alpha = 0.0
-                self.skipBackwardButton.alpha = 0.0
-                self.skipForwardButton.alpha = 0.0
-                self.subtitleButton.alpha = 0.0
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
+                self.setControlsAlpha(0.0)
             }
         }
     }
     
+    private func setControlsAlpha(_ alpha: CGFloat) {
+        centerPlayPauseButton.alpha = alpha
+        controlsOverlayView.alpha = alpha
+        progressContainer.alpha = alpha
+        closeButton.alpha = alpha
+        pipButton.alpha = alpha
+        skipBackwardButton.alpha = alpha
+        skipForwardButton.alpha = alpha
+        if !subtitleButton.isHidden { subtitleButton.alpha = alpha }
+    }
+    
+    // MARK: - Close / PiP
+    
     @objc private func closeTapped() {
         pipController?.delegate = nil
-        if pipController?.isPictureInPictureActive == true {
-            pipController?.stopPictureInPicture()
-        }
-        
+        if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
         renderer.stop()
-        
         if presentingViewController != nil {
-            dismiss(animated: true, completion: nil)
+            dismiss(animated: true)
         } else {
-            view.window?.rootViewController?.dismiss(animated: true, completion: nil)
+            view.window?.rootViewController?.dismiss(animated: true)
         }
     }
     
@@ -1110,50 +1082,76 @@ public final class PlayerViewController: UIViewController {
         }
     }
     
+    // MARK: - Skip segment
+    
+    @objc private func skipSegmentTapped() {
+        guard let segment = currentActiveSegment(at: cachedPosition) else { return }
+        guard let target  = resolvedEnd(for: segment, duration: cachedDuration) else { return }
+        renderer.seek(to: max(0, target))
+        showControlsTemporarily()
+    }
+    
+    // MARK: - Position update
+    
     private func updatePosition(_ position: Double, duration: Double) {
-        DispatchQueue.main.async {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
             self.cachedDuration = duration
             self.cachedPosition = position
             if duration > 0 {
-                self.updateProgressHostingController()
+                self.installProgressHostingControllerIfNeeded()
                 self.updateProgressHighlights(duration: duration)
             }
             self.progressModel.position = position
             self.progressModel.duration = max(duration, 1.0)
             self.updateActiveSkipSegment(at: position, duration: duration)
             
+            if self.isSeeking {
+                self.seekTimeLabel.text = self.formatTime(position)
+                if self.seekTimeLabel.alpha < 1 {
+                    UIView.animate(withDuration: 0.1) { self.seekTimeLabel.alpha = 1.0 }
+                }
+            }
+            
             if self.pipController?.isPictureInPictureActive == true {
                 self.pipController?.updatePlaybackState()
             }
         }
         
-        guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
-        
+        guard duration.isFinite, duration > 0, position >= 0,
+              let info = mediaInfo else { return }
         switch info {
         case .movie(let id, let title):
-            ProgressManager.shared.updateMovieProgress(movieId: id, title: title, currentTime: position, totalDuration: duration)
-        case .episode(let showId, let showTitle, let seasonNumber, let episodeNumber):
-            ProgressManager.shared.updateEpisodeProgress(showId: showId, showTitle: showTitle, seasonNumber: seasonNumber, episodeNumber: episodeNumber, currentTime: position, totalDuration: duration)
+            ProgressManager.shared.updateMovieProgress(movieId: id,
+                                                       title: title,
+                                                       currentTime: position,
+                                                       totalDuration: duration)
+        case .episode(let showId, let showTitle, let season, let episode):
+            ProgressManager.shared.updateEpisodeProgress(showId: showId,
+                                                         showTitle: showTitle,
+                                                         seasonNumber: season,
+                                                         episodeNumber: episode,
+                                                         currentTime: position,
+                                                         totalDuration: duration)
         }
     }
     
     private func formatTime(_ seconds: Double) -> String {
-        guard seconds.isFinite && seconds > 0 else { return "00:00" }
+        guard seconds.isFinite, seconds > 0 else { return "00:00" }
         let total = Int(round(seconds))
         let s = total % 60
         let m = (total / 60) % 60
         let h = total / 3600
-        if h > 0 {
-            return String(format: "%d:%02d:%02d", h, m, s)
-        } else {
-            return String(format: "%02d:%02d", m, s)
-        }
+        return h > 0
+        ? String(format: "%d:%02d:%02d", h, m, s)
+        : String(format: "%02d:%02d", m, s)
     }
     
-    private func fetchIntroDBSegments(for mediaInfo: MediaInfo) {
-        IntroDBService.shared.fetchSegments(for: mediaInfo) { [weak self] result in
-            guard let self = self else { return }
-            
+    // MARK: - IntroDB
+    
+    private func fetchIntroDBSegments(for info: MediaInfo) {
+        IntroDBService.shared.fetchSegments(for: info) { [weak self] result in
+            guard let self else { return }
             switch result {
             case .success(let segments):
                 DispatchQueue.main.async {
@@ -1176,32 +1174,23 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func currentActiveSegment(at position: Double, duration: Double? = nil) -> IntroDBSegment? {
-        return IntroDBService.shared.activeSegment(at: position, in: introDBSegments, duration: duration ?? cachedDuration)
+        IntroDBService.shared.activeSegment(at: position, in: introDBSegments, duration: duration ?? cachedDuration)
     }
     
     private func updateActiveSkipSegment(at position: Double, duration: Double) {
         let active = currentActiveSegment(at: position, duration: duration)
-        let newID = active?.id
+        let newID  = active?.id
         guard newID != activeSkipSegmentID else { return }
         activeSkipSegmentID = newID
-        
-        if let active {
-            showSkipButton(for: active)
-        } else {
-            hideSkipButton()
-        }
+        if let active { showSkipButton(for: active) } else { hideSkipButton() }
     }
     
     private func showSkipButton(for segment: IntroDBSegment) {
-        let title = "Skip \(segment.db.title)"
-        skipSegmentButton.setTitle(title, for: .normal)
+        skipSegmentButton.setTitle("Skip \(segment.db.title)", for: .normal)
         skipSegmentButton.backgroundColor = segment.db.uiColor.withAlphaComponent(0.55)
-        
-        guard skipSegmentButton.isHidden || skipSegmentButton.alpha < 1.0 else { return }
+        guard skipSegmentButton.isHidden || skipSegmentButton.alpha < 1 else { return }
         skipSegmentButton.isHidden = false
-        UIView.animate(withDuration: 0.2) {
-            self.skipSegmentButton.alpha = 1.0
-        }
+        UIView.animate(withDuration: 0.2) { self.skipSegmentButton.alpha = 1.0 }
     }
     
     private func hideSkipButton() {
@@ -1214,22 +1203,21 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func resolvedEnd(for segment: IntroDBSegment, duration: Double) -> Double? {
-        return segment.resolvedEnd(duration: duration)
+        segment.resolvedEnd(duration: duration)
     }
 }
 
-// MARK: - MPVSoftwareRendererDelegate
-extension PlayerViewController: MPVSoftwareRendererDelegate {
-    func renderer(_ renderer: MPVSoftwareRenderer, didUpdatePosition position: Double, duration: Double) {
+// MARK: - MPVRendererDelegate
+
+extension PlayerViewController: MPVRendererDelegate {
+    func renderer(_ renderer: MPVRenderer, didUpdatePosition position: Double, duration: Double) {
         updatePosition(position, duration: duration)
     }
-    
-    func renderer(_ renderer: MPVSoftwareRenderer, didChangePause isPaused: Bool) {
+    func renderer(_ renderer: MPVRenderer, didChangePause isPaused: Bool) {
         updatePlayPauseButton(isPaused: isPaused)
         pipController?.updatePlaybackState()
     }
-    
-    func renderer(_ renderer: MPVSoftwareRenderer, didChangeLoading isLoading: Bool) {
+    func renderer(_ renderer: MPVRenderer, didChangeLoading isLoading: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             if isLoading {
@@ -1243,13 +1231,12 @@ extension PlayerViewController: MPVSoftwareRendererDelegate {
             }
         }
     }
-    
-    func renderer(_ renderer: MPVSoftwareRenderer, didBecomeReadyToSeek: Bool) {
+    func renderer(_ renderer: MPVRenderer, didBecomeReadyToSeek: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            if let seekTime = self.pendingSeekTime {
-                self.renderer.seek(to: seekTime)
-                Logger.shared.log("Resumed MPV playback from \(Int(seekTime))s", type: "Progress")
+            if let t = self.pendingSeekTime {
+                self.renderer.seek(to: t)
+                Logger.shared.log("Resumed from \(Int(t))s", type: "Progress")
                 self.pendingSeekTime = nil
             }
             if let subs = self.pendingSubtitleURLs {
@@ -1258,43 +1245,36 @@ extension PlayerViewController: MPVSoftwareRendererDelegate {
             }
         }
     }
-    
 }
 
 // MARK: - PiP Support
+
 extension PlayerViewController: PiPControllerDelegate {
-    public func pipController(_ controller: PiPController, willStartPictureInPicture: Bool) {
-        renderer.startPiPRendering()
+    public func pipController(_ c: PiPController, willStartPictureInPicture: Bool) {
+        renderer.startPiPRendering(); pipController?.updatePlaybackState()
+    }
+    public func pipController(_ c: PiPController, didStartPictureInPicture: Bool) {
+        if !didStartPictureInPicture { renderer.stopPiPRendering() }
         pipController?.updatePlaybackState()
     }
-    public func pipController(_ controller: PiPController, didStartPictureInPicture: Bool) {
-        if !didStartPictureInPicture {
-            renderer.stopPiPRendering()
-        }
-        pipController?.updatePlaybackState()
-    }
-    public func pipController(_ controller: PiPController, willStopPictureInPicture: Bool) { }
-    public func pipController(_ controller: PiPController, didStopPictureInPicture: Bool) {
+    public func pipController(_ c: PiPController, willStopPictureInPicture: Bool) {}
+    public func pipController(_ c: PiPController, didStopPictureInPicture: Bool) {
         renderer.stopPiPRendering()
     }
-    public func pipController(_ controller: PiPController, restoreUserInterfaceForPictureInPictureStop completionHandler: @escaping (Bool) -> Void) {
-        if presentedViewController != nil {
-            dismiss(animated: true) { completionHandler(true) }
-        } else {
-            completionHandler(true)
-        }
+    public func pipController(_ c: PiPController, restoreUserInterfaceForPictureInPictureStop handler: @escaping (Bool) -> Void) {
+        if presentedViewController != nil { dismiss(animated: true) { handler(true) } }
+        else { handler(true) }
     }
-    public func pipControllerPlay(_ controller: PiPController) { renderer.play() }
-    public func pipControllerPause(_ controller: PiPController) { renderer.pausePlayback() }
-    public func pipController(_ controller: PiPController, skipByInterval interval: CMTime) {
-        let seconds = CMTimeGetSeconds(interval)
-        let target = max(0, cachedPosition + seconds)
+    public func pipControllerPlay(_ c: PiPController) { renderer.play() }
+    public func pipControllerPause(_ c: PiPController) { renderer.pausePlayback() }
+    public func pipController(_ c: PiPController, skipByInterval interval: CMTime) {
+        let target = max(0, cachedPosition + CMTimeGetSeconds(interval))
         renderer.seek(to: target)
         pipController?.updatePlaybackState()
     }
-    public func pipControllerIsPlaying(_ controller: PiPController) -> Bool { return !renderer.isPausedState }
-    public func pipControllerDuration(_ controller: PiPController) -> Double { return cachedDuration }
-    public func pipControllerCurrentTime(_ controller: PiPController) -> Double { return cachedPosition }
+    public func pipControllerIsPlaying(_ c: PiPController) -> Bool { !renderer.isPausedState }
+    public func pipControllerDuration(_ c: PiPController) -> Double { cachedDuration }
+    public func pipControllerCurrentTime(_ c: PiPController) -> Double { cachedPosition }
     
     @objc private func appDidEnterBackground() {
         DispatchQueue.main.async { [weak self] in
@@ -1310,9 +1290,7 @@ extension PlayerViewController: PiPControllerDelegate {
     @objc private func appWillEnterForeground() {
         DispatchQueue.main.async { [weak self] in
             guard let self, let pip = self.pipController else { return }
-            if pip.isPictureInPictureActive {
-                pip.stopPictureInPicture()
-            }
+            if pip.isPictureInPictureActive { pip.stopPictureInPicture() }
         }
     }
 }
