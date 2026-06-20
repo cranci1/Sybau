@@ -5,6 +5,7 @@
 
 import UIKit
 import SwiftUI
+import Combine
 import AVFoundation
 #if os(tvOS)
 import TVUIKit
@@ -221,6 +222,36 @@ public final class PlayerViewController: UIViewController {
     }
     private var progressModel = ProgressModel()
     
+    // MARK: - Thumbnail preview
+    
+    private let thumbnailContainer: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = UIColor(white: 0.0, alpha: 0.75)
+        v.layer.cornerRadius = 6
+        v.clipsToBounds = true
+        v.alpha = 0.0
+        return v
+    }()
+    
+    private let thumbnailImageView: UIImageView = {
+        let iv = UIImageView()
+        iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.contentMode = .scaleAspectFit
+        iv.backgroundColor = .black
+        return iv
+    }()
+    
+    private let thumbnailTimeLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.textColor = .white
+        l.font = .systemFont(ofSize: 12, weight: .medium)
+        l.textAlignment = .center
+        l.backgroundColor = UIColor(white: 0.0, alpha: 0.5)
+        return l
+    }()
+    
     // MARK: - Renderer & state
     
     private lazy var renderer: MPVRenderer = {
@@ -299,6 +330,13 @@ public final class PlayerViewController: UIViewController {
     private var introDBSegments: [IntroDBSegment] = []
     private var activeSkipSegmentID: String?
     
+    // MARK: - Thumbnail generator
+    
+    private var thumbnailWorkItem: DispatchWorkItem?
+    private var cancellables = Set<AnyCancellable>()
+    private var thumbnailCache: [Double: UIImage] = [:]
+    private var thumbnailGenerator: AVAssetImageGenerator?
+    
 #if !os(tvOS)
     private let holdHaptic = UIImpactFeedbackGenerator(style: .medium)
     private let skipHaptic  = UIImpactFeedbackGenerator(style: .light)
@@ -339,6 +377,7 @@ public final class PlayerViewController: UIViewController {
         }
         
         installProgressHostingControllerIfNeeded()
+        observeProgressForThumbnails()
         
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
@@ -415,6 +454,7 @@ public final class PlayerViewController: UIViewController {
         renderer.stop()
         displayLayer.removeFromSuperlayer()
         NotificationCenter.default.removeObserver(self)
+        thumbnailWorkItem?.cancel()
     }
     
     // MARK: - Public init
@@ -438,6 +478,11 @@ public final class PlayerViewController: UIViewController {
         if let subs = initialSubtitles, !subs.isEmpty {
             pendingSubtitleURLs = subs
         }
+        
+        thumbnailGenerator = nil
+        thumbnailCache.removeAll()
+        thumbnailImageView.image = nil
+        thumbnailContainer.alpha = 0.0
     }
     
     private func prepareSeekToLastPosition(for info: MediaInfo) {
@@ -486,6 +531,10 @@ public final class PlayerViewController: UIViewController {
         videoContainer.addSubview(speedIndicatorLabel)
         videoContainer.addSubview(subtitleButton)
         videoContainer.addSubview(skipSegmentButton)
+        
+        videoContainer.addSubview(thumbnailContainer)
+        thumbnailContainer.addSubview(thumbnailImageView)
+        thumbnailContainer.addSubview(thumbnailTimeLabel)
         
         NSLayoutConstraint.activate([
             videoContainer.topAnchor.constraint(equalTo: view.topAnchor),
@@ -554,6 +603,21 @@ public final class PlayerViewController: UIViewController {
             subtitleButton.centerYAnchor.constraint(equalTo: skipSegmentButton.centerYAnchor),
             subtitleButton.widthAnchor.constraint(equalToConstant: 32),
             subtitleButton.heightAnchor.constraint(equalToConstant: 32),
+            
+            thumbnailContainer.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor),
+            thumbnailContainer.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -8),
+            thumbnailContainer.widthAnchor.constraint(equalToConstant: 160),
+            thumbnailContainer.heightAnchor.constraint(equalToConstant: 100),
+            
+            thumbnailImageView.topAnchor.constraint(equalTo: thumbnailContainer.topAnchor),
+            thumbnailImageView.leadingAnchor.constraint(equalTo: thumbnailContainer.leadingAnchor),
+            thumbnailImageView.trailingAnchor.constraint(equalTo: thumbnailContainer.trailingAnchor),
+            thumbnailImageView.bottomAnchor.constraint(equalTo: thumbnailTimeLabel.topAnchor),
+            
+            thumbnailTimeLabel.leadingAnchor.constraint(equalTo: thumbnailContainer.leadingAnchor),
+            thumbnailTimeLabel.trailingAnchor.constraint(equalTo: thumbnailContainer.trailingAnchor),
+            thumbnailTimeLabel.bottomAnchor.constraint(equalTo: thumbnailContainer.bottomAnchor),
+            thumbnailTimeLabel.heightAnchor.constraint(equalToConstant: 20),
         ])
     }
     
@@ -840,9 +904,14 @@ public final class PlayerViewController: UIViewController {
                 if editing {
                     self.controlsHideWorkItem?.cancel()
                     self.showControlsIfNeeded()
+                    self.thumbnailContainer.alpha = 1.0
+                    self.requestThumbnail(at: self.progressModel.position)
                 } else {
                     self.renderer.seek(to: max(0, self.progressModel.position))
                     self.showControlsTemporarily()
+                    self.thumbnailContainer.alpha = 0.0
+                    self.thumbnailWorkItem?.cancel()
+                    self.thumbnailImageView.image = nil
                 }
             }
         ))
@@ -859,6 +928,65 @@ public final class PlayerViewController: UIViewController {
             host.view.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
         ])
         host.didMove(toParent: self)
+    }
+    
+    // MARK: - Thumbnail observation
+    
+    private func observeProgressForThumbnails() {
+        progressModel.$position
+            .dropFirst()
+            .sink { [weak self] newPos in
+                guard let self = self, self.isSeeking else { return }
+                self.requestThumbnail(at: newPos)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func setupThumbnailGenerator() {
+        guard let url = renderer.currentURL else { return }
+        let options: [String: Any] = [
+            "AVURLAssetHTTPHeaderFieldsKey": renderer.currentHeaders ?? [:]
+        ]
+        let asset = AVURLAsset(url: url, options: options)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        generator.requestedTimeToleranceBefore = CMTime.zero
+        generator.requestedTimeToleranceAfter = CMTime.zero
+        thumbnailGenerator = generator
+        thumbnailCache.removeAll()
+    }
+    
+    private func requestThumbnail(at time: Double) {
+        guard isSeeking, let generator = thumbnailGenerator else { return }
+        let rounded = (time * 2).rounded() / 2
+        if let cached = thumbnailCache[rounded] {
+            thumbnailImageView.image = cached
+            updateThumbnailTime(rounded)
+            return
+        }
+        
+        thumbnailWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            let cmTime = CMTime(seconds: rounded, preferredTimescale: 600)
+            do {
+                let cgImage = try generator.copyCGImage(at: cmTime, actualTime: nil)
+                let image = UIImage(cgImage: cgImage)
+                DispatchQueue.main.async {
+                    if self.isSeeking {
+                        self.thumbnailCache[rounded] = image
+                        self.thumbnailImageView.image = image
+                        self.updateThumbnailTime(rounded)
+                    }
+                }
+            } catch { }
+        }
+        thumbnailWorkItem = work
+        DispatchQueue.global(qos: .userInitiated).async(execute: work)
+    }
+    
+    private func updateThumbnailTime(_ time: Double) {
+        thumbnailTimeLabel.text = formatTime(time)
     }
     
     // MARK: - Play/pause button
@@ -1088,11 +1216,11 @@ public final class PlayerViewController: UIViewController {
         self.progressModel.position = position
         self.progressModel.duration = max(duration, 1.0)
         self.updateActiveSkipSegment(at: position, duration: duration)
-
+        
         if self.pipController?.isPictureInPictureActive == true {
             self.pipController?.updatePlaybackState()
         }
-
+        
         guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
         
         switch info {
@@ -1210,6 +1338,7 @@ extension PlayerViewController: MPVRendererDelegate {
                 self.pendingSubtitleURLs = nil
                 self.loadSubtitles(subs)
             }
+            self.setupThumbnailGenerator()
         }
     }
 }

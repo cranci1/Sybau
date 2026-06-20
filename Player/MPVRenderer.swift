@@ -70,8 +70,8 @@ final class MPVRenderer {
     private let maxPreAllocatedBuffers = 6
     
     private var currentPreset: PlayerPreset?
-    private var currentURL: URL?
-    private var currentHeaders: [String: String]?
+    private var _currentURL: URL?
+    private var _currentHeaders: [String: String]?
     
     private var isRunning  = false
     private var isStopping = false
@@ -161,6 +161,19 @@ final class MPVRenderer {
         setOption(name: "sub-ass", value: "yes")
         setOption(name: "subs-fallback", value: "yes")
         setOption(name: "sub-ass-override", value: "yes")
+        
+        setOption(name: "sub-ass", value: "yes")
+        setOption(name: "subs-fallback", value: "yes")
+        setOption(name: "sub-ass-override", value: "yes")
+        
+        setOption(name: "vd-lavc-dr", value: "yes")
+        setOption(name: "vd-lavc-threads", value: "auto")
+        
+        setOption(name: "cache", value: "yes")
+        setOption(name: "cache-secs", value: "120")
+        setOption(name: "cache-initial", value: "100")
+        setOption(name: "demuxer-max-bytes", value: "100M")
+        setOption(name: "demuxer-readahead-secs", value: "20")
         
         setOption(name: "msg-level", value: "all=warn")
         
@@ -253,9 +266,9 @@ final class MPVRenderer {
     // MARK: - Load
     
     func load(url: URL, with preset: PlayerPreset, headers: [String: String]? = nil) {
-        currentPreset  = preset
-        currentURL     = url
-        currentHeaders = headers
+        currentPreset = preset
+        _currentURL = url
+        _currentHeaders = headers
         
         setIsLoading(true)
         DispatchQueue.main.async { [weak self] in
@@ -949,5 +962,15 @@ private extension UIColor {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         getRed(&r, green: &g, blue: &b, alpha: &a)
         return String(format: "%.3f/%.3f/%.3f/%.3f", r, g, b, a)
+    }
+}
+
+extension MPVRenderer {
+    var currentURL: URL? {
+        stateQueue.sync { _currentURL }
+    }
+
+    var currentHeaders: [String: String]? {
+        stateQueue.sync { _currentHeaders }
     }
 }
