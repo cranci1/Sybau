@@ -2,17 +2,6 @@
 //  MPVRenderer.swift
 //  Sybau
 //
-// FIX (naming): Renamed from MPVSoftwareRenderer → MPVRenderer.
-// The renderer uses gpu-next + Metal + VideoToolbox, not software rendering.
-// The old name was a historical artifact from before the Metal migration.
-//
-// FIX (thread safety): isPaused, isLoading, cachedDuration, cachedPosition
-// are now always read/written through `stateQueue` so there are no data races
-// between renderQueue, eventQueue, and the main thread.
-//
-// FIX (subtitle security): addSubtitleTrack now validates that the URL scheme
-// is https or http before passing it to mpv, preventing file:// or custom
-// scheme injection from untrusted metadata sources.
 
 import UIKit
 import Libmpv
@@ -407,11 +396,8 @@ final class MPVRenderer {
             guard let self, self.pipDisplayLink == nil else { return }
             let proxy = PiPDisplayLinkProxy(owner: self)
             let link  = CADisplayLink(target: proxy, selector: #selector(PiPDisplayLinkProxy.onDisplayLinkTick))
-            if #available(iOS 15.0, *) {
-                link.preferredFrameRateRange = CAFrameRateRange(minimum: 8, maximum: 24, preferred: 24)
-            } else {
-                link.preferredFramesPerSecond = 24
-            }
+            
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 8, maximum: 12, preferred: 12)
             link.add(to: .main, forMode: .common)
             self.pipDisplayLinkProxy = proxy
             self.pipDisplayLink      = link
@@ -446,6 +432,8 @@ final class MPVRenderer {
     }
     
     private func renderFrame(with context: OpaquePointer) {
+        guard !isPausedState else { return }
+        
         let videoSize  = currentVideoSize()
         guard videoSize.width > 0, videoSize.height > 0 else { return }
         let targetSize = targetRenderSize(for: videoSize)
@@ -469,8 +457,7 @@ final class MPVRenderer {
             pixelBuffer = preAllocatedBuffers.removeFirst()
             status = kCVReturnSuccess
         } else if let pool = pixelBufferPool {
-            status = CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(
-                kCFAllocatorDefault, pool, pixelBufferPoolAuxAttributes, &pixelBuffer)
+            status = CVPixelBufferPoolCreatePixelBufferWithAuxAttributes(kCFAllocatorDefault, pool, pixelBufferPoolAuxAttributes, &pixelBuffer)
         }
         
         if status != kCVReturnSuccess || pixelBuffer == nil {
@@ -531,10 +518,6 @@ final class MPVRenderer {
         
         CVPixelBufferUnlockBaseAddress(buffer, [])
         enqueue(buffer: buffer)
-        
-        if preAllocatedBuffers.count < 2 {
-            renderQueue.async { [weak self] in self?.preAllocateBuffers() }
-        }
     }
     
     private func targetRenderSize(for videoSize: CGSize) -> CGSize {
@@ -560,20 +543,21 @@ final class MPVRenderer {
         ]
         let poolAttrs: [CFString: Any] = [
             kCVPixelBufferPoolMinimumBufferCountKey: maxPreAllocatedBuffers,
-            kCVPixelBufferPoolMaximumBufferAgeKey:   0
+            kCVPixelBufferPoolMaximumBufferAgeKey: 0
         ]
         let auxAttrs: [CFString: Any] = [kCVPixelBufferPoolAllocationThresholdKey: 6]
         
         var pool: CVPixelBufferPool?
         let status = CVPixelBufferPoolCreate(kCFAllocatorDefault, poolAttrs as CFDictionary, attrs as CFDictionary, &pool)
+        
         if status == kCVReturnSuccess, let pool {
             renderQueueSync {
                 self.pixelBufferPool = pool
                 self.pixelBufferPoolAuxAttributes = auxAttrs as CFDictionary
-                self.poolWidth  = width
+                self.poolWidth = width
                 self.poolHeight = height
             }
-            renderQueue.async { [weak self] in self?.preAllocateBuffers() }
+            preAllocateBuffers()
         } else {
             Logger.shared.log("Failed to create CVPixelBufferPool (status: \(status))", type: "Error")
         }
@@ -582,9 +566,9 @@ final class MPVRenderer {
     private func recreatePixelBufferPool(width: Int, height: Int) {
         renderQueueSync {
             self.preAllocatedBuffers.removeAll()
-            self.pixelBufferPool   = nil
+            self.pixelBufferPool = nil
             self.formatDescription = nil
-            self.poolWidth  = 0
+            self.poolWidth = 0
             self.poolHeight = 0
         }
         createPixelBufferPool(width: width, height: height)

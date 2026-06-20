@@ -204,19 +204,6 @@ public final class PlayerViewController: UIViewController {
         return b
     }()
     
-    private let seekTimeLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.textColor = .white
-        l.font = .monospacedDigitSystemFont(ofSize: 14, weight: .semibold)
-        l.textAlignment = .center
-        l.backgroundColor = UIColor(white: 0.15, alpha: 0.85)
-        l.layer.cornerRadius = 8
-        l.clipsToBounds = true
-        l.alpha = 0.0
-        return l
-    }()
-    
     private let progressContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -242,19 +229,20 @@ public final class PlayerViewController: UIViewController {
         return r
     }()
     
-    public var mediaInfo: MediaInfo?
+    private var initialURL: URL?
     private var isSeeking = false
+    public var mediaInfo: MediaInfo?
     private var cachedDuration: Double = 0
     private var cachedPosition: Double = 0
-    private var pipController: PiPController?
-    private var initialURL: URL?
-    private var initialPreset: PlayerPreset?
-    private var initialHeaders: [String: String]?
     private var initialSubtitles: [String]?
+    private var initialPreset: PlayerPreset?
+    private var pipController: PiPController?
+    private var initialHeaders: [String: String]?
     
     private var subtitleURLs: [String] = []
     private var currentSubtitleIndex: Int = 0
     private var pendingSubtitleURLs: [String]?
+    private var lastUIUpdateTime: TimeInterval = 0
     
     // MARK: - SubtitleModel
     
@@ -491,7 +479,6 @@ public final class PlayerViewController: UIViewController {
         view.addSubview(errorBanner)
         videoContainer.addSubview(centerPlayPauseButton)
         videoContainer.addSubview(progressContainer)
-        videoContainer.addSubview(seekTimeLabel)
         videoContainer.addSubview(closeButton)
         videoContainer.addSubview(pipButton)
         videoContainer.addSubview(skipBackwardButton)
@@ -515,11 +502,6 @@ public final class PlayerViewController: UIViewController {
             progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
             progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             progressContainer.heightAnchor.constraint(equalToConstant: 44),
-            
-            seekTimeLabel.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor),
-            seekTimeLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -6),
-            seekTimeLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 80),
-            seekTimeLabel.heightAnchor.constraint(equalToConstant: 28),
             
             controlsOverlayView.topAnchor.constraint(equalTo: videoContainer.topAnchor),
             controlsOverlayView.leadingAnchor.constraint(equalTo: videoContainer.leadingAnchor),
@@ -861,7 +843,6 @@ public final class PlayerViewController: UIViewController {
                 } else {
                     self.renderer.seek(to: max(0, self.progressModel.position))
                     self.showControlsTemporarily()
-                    UIView.animate(withDuration: 0.2) { self.seekTimeLabel.alpha = 0.0 }
                 }
             }
         ))
@@ -1094,45 +1075,31 @@ public final class PlayerViewController: UIViewController {
     // MARK: - Position update
     
     private func updatePosition(_ position: Double, duration: Double) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.cachedDuration = duration
-            self.cachedPosition = position
-            if duration > 0 {
-                self.installProgressHostingControllerIfNeeded()
-                self.updateProgressHighlights(duration: duration)
-            }
-            self.progressModel.position = position
-            self.progressModel.duration = max(duration, 1.0)
-            self.updateActiveSkipSegment(at: position, duration: duration)
-            
-            if self.isSeeking {
-                self.seekTimeLabel.text = self.formatTime(position)
-                if self.seekTimeLabel.alpha < 1 {
-                    UIView.animate(withDuration: 0.1) { self.seekTimeLabel.alpha = 1.0 }
-                }
-            }
-            
-            if self.pipController?.isPictureInPictureActive == true {
-                self.pipController?.updatePlaybackState()
-            }
-        }
+        let now = CACurrentMediaTime()
+        guard now - lastUIUpdateTime > 0.1 else { return }
+        lastUIUpdateTime = now
         
-        guard duration.isFinite, duration > 0, position >= 0,
-              let info = mediaInfo else { return }
+        self.cachedDuration = duration
+        self.cachedPosition = position
+        if duration > 0 {
+            self.installProgressHostingControllerIfNeeded()
+            self.updateProgressHighlights(duration: duration)
+        }
+        self.progressModel.position = position
+        self.progressModel.duration = max(duration, 1.0)
+        self.updateActiveSkipSegment(at: position, duration: duration)
+
+        if self.pipController?.isPictureInPictureActive == true {
+            self.pipController?.updatePlaybackState()
+        }
+
+        guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
+        
         switch info {
         case .movie(let id, let title):
-            ProgressManager.shared.updateMovieProgress(movieId: id,
-                                                       title: title,
-                                                       currentTime: position,
-                                                       totalDuration: duration)
+            ProgressManager.shared.updateMovieProgress(movieId: id, title: title, currentTime: position, totalDuration: duration)
         case .episode(let showId, let showTitle, let season, let episode):
-            ProgressManager.shared.updateEpisodeProgress(showId: showId,
-                                                         showTitle: showTitle,
-                                                         seasonNumber: season,
-                                                         episodeNumber: episode,
-                                                         currentTime: position,
-                                                         totalDuration: duration)
+            ProgressManager.shared.updateEpisodeProgress(showId: showId, showTitle: showTitle, seasonNumber: season, episodeNumber: episode, currentTime: position, totalDuration: duration)
         }
     }
     
