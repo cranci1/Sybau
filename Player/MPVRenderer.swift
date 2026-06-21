@@ -170,8 +170,6 @@ final class MPVRenderer {
         setOption(name: "demuxer-max-bytes", value: "64M")
         setOption(name: "demuxer-readahead-secs", value: "10")
         
-        setOption(name: "framedrop", value: "vo")
-        
         configureAudioSession()
         configureWindowEmbedding()
         
@@ -180,7 +178,6 @@ final class MPVRenderer {
             throw RendererError.mpvInitialization(initStatus)
         }
         
-        mpv_request_log_messages(handle, "warn")
         observeProperties()
         installWakeupHandler()
         isRunning = true

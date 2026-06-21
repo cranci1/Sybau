@@ -243,53 +243,6 @@ public final class PlayerViewController: UIViewController {
     private var pendingSubtitleURLs: [String]?
     private var lastUIUpdateTime: TimeInterval = 0
     
-    // MARK: - SubtitleModel
-    
-    class SubtitleModel: ObservableObject {
-        private var isLoading = true
-        
-        @Published var isVisible: Bool = false { didSet { if !isLoading { save() } } }
-        @Published var foregroundColor: UIColor = .white { didSet { if !isLoading { save() } } }
-        @Published var strokeColor: UIColor = .black { didSet { if !isLoading { save() } } }
-        @Published var strokeWidth: CGFloat = 1.0 { didSet { if !isLoading { save() } } }
-        @Published var fontSize: CGFloat = 38.0 { didSet { if !isLoading { save() } } }
-        
-        init() { load(); isLoading = false }
-        
-        private func save() {
-            let d = UserDefaults.standard
-            d.set(isVisible, forKey: "subtitles_isVisible")
-            d.set(strokeWidth, forKey: "subtitles_strokeWidth")
-            d.set(fontSize, forKey: "subtitles_fontSize")
-            if let fg = try? NSKeyedArchiver.archivedData(withRootObject: foregroundColor, requiringSecureCoding: false) {
-                d.set(fg, forKey: "subtitles_foregroundColor")
-            }
-            if let sc = try? NSKeyedArchiver.archivedData(withRootObject: strokeColor, requiringSecureCoding: false) {
-                d.set(sc, forKey: "subtitles_strokeColor")
-            }
-        }
-        
-        private func load() {
-            let d = UserDefaults.standard
-            if d.object(forKey: "subtitles_isVisible") != nil {
-                isVisible = d.bool(forKey: "subtitles_isVisible")
-            }
-            let w = CGFloat(d.double(forKey: "subtitles_strokeWidth"))
-            strokeWidth = w > 0 ? w : 1.0
-            let s = CGFloat(d.double(forKey: "subtitles_fontSize"))
-            fontSize = s > 0 ? s : 38.0
-            if let fg = d.data(forKey: "subtitles_foregroundColor"),
-               let c = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: fg) {
-                foregroundColor = c
-            }
-            if let sc = d.data(forKey: "subtitles_strokeColor"),
-               let c = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: sc) {
-                strokeColor = c
-            }
-        }
-    }
-    private var subtitleModel = SubtitleModel()
-    
     private var originalSpeed: Double = 1.0
     private var holdGesture: UILongPressGestureRecognizer?
     private var controlsHideWorkItem: DispatchWorkItem?
@@ -338,6 +291,8 @@ public final class PlayerViewController: UIViewController {
         
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        
+        subscribeToSubtitleSettings()
     }
     
     public override func viewDidAppear(_ animated: Bool) {
@@ -662,16 +617,28 @@ public final class PlayerViewController: UIViewController {
         showControlsTemporarily()
     }
     
+    private func subscribeToSubtitleSettings() {
+        NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange), name: UserDefaults.didChangeNotification, object: nil)
+    }
+    
+    @objc private func userDefaultsDidChange() {
+        renderer.applySubtitleStyle(currentSubtitleStyle())
+        renderer.setSubtitleVisible(subtitleIsVisible)
+        updateSubtitleButtonAppearance()
+        updateSubtitleMenu()
+    }
+    
     // MARK: - Subtitle menu
     
     private func updateSubtitleMenu() {
+        let isVisible = subtitleIsVisible
         var actions: [UIAction] = []
         let disableAction = UIAction(
             title: "Disable Subtitles",
             image: UIImage(systemName: "xmark"),
-            state: subtitleModel.isVisible ? .off : .on
+            state: isVisible ? .off : .on
         ) { [weak self] _ in
-            self?.subtitleModel.isVisible = false
+            UserDefaults.standard.set(false, forKey: "subtitles_isVisible")
             self?.renderer.setSubtitleVisible(false)
             self?.updateSubtitleButtonAppearance()
             self?.updateSubtitleMenu()
@@ -679,14 +646,14 @@ public final class PlayerViewController: UIViewController {
         actions.append(disableAction)
         
         for (i, _) in subtitleURLs.enumerated() {
-            let selected = subtitleModel.isVisible && currentSubtitleIndex == i
+            let selected = isVisible && currentSubtitleIndex == i
             actions.append(UIAction(
                 title: "Subtitle \(i + 1)",
                 image: UIImage(systemName: "captions.bubble"),
                 state: selected ? .on : .off
             ) { [weak self] _ in
                 self?.currentSubtitleIndex = i
-                self?.subtitleModel.isVisible = true
+                UserDefaults.standard.set(true, forKey: "subtitles_isVisible")
                 self?.loadCurrentSubtitle()
                 self?.renderer.setSubtitleVisible(true)
                 self?.updateSubtitleButtonAppearance()
@@ -700,68 +667,73 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func createAppearanceMenu() -> UIMenu {
-        func colorAction(title: String, color: UIColor, current: UIColor, set: @escaping (UIColor) -> Void) -> UIAction {
-            UIAction(title: title, state: current == color ? .on : .off) { [weak self] _ in
-                set(color); self?.updateCurrentSubtitleAppearance(); self?.updateSubtitleMenu()
-            }
-        }
-        
-        let fgMenu = UIMenu(title: "Text Color", image: UIImage(systemName: "paintpalette"),
-                            children: [
-                                colorAction(title: "White", color: .white, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
-                                colorAction(title: "Yellow", color: .yellow, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
-                                colorAction(title: "Cyan", color: .cyan, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
-                                colorAction(title: "Green", color: .green, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0},
-                                colorAction(title: "Magenta", color: .magenta, current: subtitleModel.foregroundColor) { self.subtitleModel.foregroundColor = $0}
-                            ])
-        
-        let scMenu = UIMenu(title: "Stroke Color", image: UIImage(systemName: "pencil.tip"),
-                            children: [
-                                colorAction(title: "Black", color: .black, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0},
-                                colorAction(title: "Dark Gray", color: .darkGray, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0},
-                                colorAction(title: "White", color: .white, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0},
-                                colorAction(title: "None", color: .clear, current: subtitleModel.strokeColor) { self.subtitleModel.strokeColor = $0}
-                            ])
-        
-        func widthAction(_ name: String, _ w: CGFloat) -> UIAction {
-            UIAction(title: name, state: subtitleModel.strokeWidth == w ? .on : .off) { [weak self] _ in
-                self?.subtitleModel.strokeWidth = w
+        let d = UserDefaults.standard
+        func colorAction(title: String, color: UIColor, current: UIColor, key: String) -> UIAction {
+            UIAction(title: title, state: current.cgColor == color.cgColor ? .on : .off) { [weak self] _ in
+                if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
+                    d.set(data, forKey: key)
+                }
                 self?.updateCurrentSubtitleAppearance()
                 self?.updateSubtitleMenu()
             }
         }
-        let swMenu = UIMenu(title: "Stroke Width", image: UIImage(systemName: "lineweight"),
-                            children: [
-                                widthAction("None", 0), widthAction("Thin", 0.5),
-                                widthAction("Normal", 1), widthAction("Medium", 1.5),
-                                widthAction("Thick", 2)
-                            ])
         
-        func sizeAction(_ name: String, _ s: CGFloat) -> UIAction {
-            UIAction(title: name, state: subtitleModel.fontSize == s ? .on : .off) { [weak self] _ in
-                self?.subtitleModel.fontSize = s
+        let fg = subtitleUIColor(forKey: "subtitles_foregroundColor", default: .white)
+        let fgMenu = UIMenu(title: "Text Color", image: UIImage(systemName: "paintpalette"), children: [
+            colorAction(title: "White", color: .white, current: fg, key: "subtitles_foregroundColor"),
+            colorAction(title: "Yellow", color: .yellow, current: fg, key: "subtitles_foregroundColor"),
+            colorAction(title: "Cyan", color: .cyan, current: fg, key: "subtitles_foregroundColor"),
+            colorAction(title: "Green", color: .green, current: fg, key: "subtitles_foregroundColor"),
+            colorAction(title: "Magenta", color: .magenta, current: fg, key: "subtitles_foregroundColor")
+        ])
+        
+        let sc = subtitleUIColor(forKey: "subtitles_strokeColor", default: .black)
+        let scMenu = UIMenu(title: "Stroke Color", image: UIImage(systemName: "pencil.tip"), children: [
+            colorAction(title: "Black", color: .black, current: sc, key: "subtitles_strokeColor"),
+            colorAction(title: "Dark Gray", color: .darkGray, current: sc, key: "subtitles_strokeColor"),
+            colorAction(title: "White", color: .white, current: sc, key: "subtitles_strokeColor"),
+            colorAction(title: "None", color: .clear, current: sc, key: "subtitles_strokeColor")
+        ])
+        
+        let currentWidth = d.double(forKey: "subtitles_strokeWidth").nonZeroOr(1.0)
+        func widthAction(_ name: String, _ w: Double) -> UIAction {
+            UIAction(title: name, state: currentWidth == w ? .on : .off) { [weak self] _ in
+                d.set(w, forKey: "subtitles_strokeWidth")
                 self?.updateCurrentSubtitleAppearance()
                 self?.updateSubtitleMenu()
             }
         }
-        let fsMenu = UIMenu(title: "Font Size", image: UIImage(systemName: "textformat.size"),
-                            children: [
-                                sizeAction("Small", 34), sizeAction("Medium", 38),
-                                sizeAction("Large", 42), sizeAction("Extra Large", 46),
-                                sizeAction("Huge", 56), sizeAction("Extra Huge", 66)
-                            ])
+        let swMenu = UIMenu(title: "Stroke Width", image: UIImage(systemName: "lineweight"), children: [
+            widthAction("None", 0), widthAction("Thin", 0.5),
+            widthAction("Normal", 1), widthAction("Medium", 1.5),
+            widthAction("Thick", 2)
+        ])
+        
+        let currentSize = d.double(forKey: "subtitles_fontSize").nonZeroOr(38.0)
+        func sizeAction(_ name: String, _ s: Double) -> UIAction {
+            UIAction(title: name, state: currentSize == s ? .on : .off) { [weak self] _ in
+                d.set(s, forKey: "subtitles_fontSize")
+                self?.updateCurrentSubtitleAppearance()
+                self?.updateSubtitleMenu()
+            }
+        }
+        let fsMenu = UIMenu(title: "Font Size", image: UIImage(systemName: "textformat.size"), children: [
+            sizeAction("Small", 34), sizeAction("Medium", 38),
+            sizeAction("Large", 42), sizeAction("Extra Large", 46),
+            sizeAction("Huge", 56), sizeAction("Extra Huge", 66)
+        ])
         
         return UIMenu(title: "Appearance", image: UIImage(systemName: "paintbrush"), children: [fgMenu, scMenu, swMenu, fsMenu])
     }
     
     private func updateCurrentSubtitleAppearance() {
         renderer.applySubtitleStyle(currentSubtitleStyle())
-        renderer.setSubtitleVisible(subtitleModel.isVisible)
+        renderer.setSubtitleVisible(subtitleIsVisible)
     }
     
     private func updateSubtitleButtonAppearance() {
         let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        let name = subtitleModel.isVisible ? "captions.bubble.fill" : "captions.bubble"
+        let name = subtitleIsVisible ? "captions.bubble.fill" : "captions.bubble"
         subtitleButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
     }
     
@@ -770,7 +742,7 @@ public final class PlayerViewController: UIViewController {
         guard !urls.isEmpty else { return }
         subtitleButton.isHidden = false
         currentSubtitleIndex = 0
-        subtitleModel.isVisible = true
+        UserDefaults.standard.set(true, forKey: "subtitles_isVisible")
         renderer.applySubtitleStyle(currentSubtitleStyle())
         renderer.setSubtitleVisible(true)
         loadCurrentSubtitle()
@@ -784,16 +756,33 @@ public final class PlayerViewController: UIViewController {
         renderer.applySubtitleStyle(currentSubtitleStyle())
         renderer.clearCurrentSubtitleTrack()
         renderer.addSubtitleTrack(urlString: urlString)
-        renderer.setSubtitleVisible(subtitleModel.isVisible)
+        renderer.setSubtitleVisible(subtitleIsVisible)
         Logger.shared.log("Loading subtitle: \(urlString)", type: "Info")
     }
     
+    private var subtitleIsVisible: Bool {
+        UserDefaults.standard.bool(forKey: "subtitles_isVisible")
+    }
+    
+    private func subtitleUIColor(forKey key: String, default fallback: UIColor) -> UIColor {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let color = try? NSKeyedUnarchiver.unarchivedObject(ofClass: UIColor.self, from: data) else {
+            return fallback
+        }
+        return color
+    }
+    
     private func currentSubtitleStyle() -> SubtitleStyle {
-        SubtitleStyle(foregroundColor: subtitleModel.foregroundColor,
-                      strokeColor: subtitleModel.strokeColor,
-                      strokeWidth: subtitleModel.strokeWidth,
-                      fontSize: subtitleModel.fontSize,
-                      isVisible: subtitleModel.isVisible)
+        let d = UserDefaults.standard
+        let strokeWidth = d.double(forKey: "subtitles_strokeWidth").nonZeroOr(1.0)
+        let fontSize = d.double(forKey: "subtitles_fontSize").nonZeroOr(38.0)
+        return SubtitleStyle(
+            foregroundColor: subtitleUIColor(forKey: "subtitles_foregroundColor", default: .white),
+            strokeColor: subtitleUIColor(forKey: "subtitles_strokeColor", default: .black),
+            strokeWidth: CGFloat(strokeWidth),
+            fontSize: CGFloat(fontSize),
+            isVisible: subtitleIsVisible
+        )
     }
     
     // MARK: - Button animation
@@ -1260,4 +1249,10 @@ extension PlayerViewController: PiPControllerDelegate {
     }
     
     @objc private func appWillEnterForeground() { }
+}
+
+// MARK: - Helpers
+
+private extension Double {
+    func nonZeroOr(_ fallback: Double) -> Double { self != 0 ? self : fallback }
 }
