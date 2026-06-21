@@ -944,10 +944,10 @@ public final class PlayerViewController: UIViewController {
         Task { @MainActor in
             let logs = await Logger.shared.getLogsAsync()
             let vc = UIViewController()
-            vc.view.backgroundColor = UIColor.systemBackground
             let tv = UITextView()
             tv.translatesAutoresizingMaskIntoConstraints = false
 #if !os(tvOS)
+            vc.view.backgroundColor = UIColor.systemBackground
             tv.isEditable = false
 #endif
             tv.text = logs
@@ -1052,8 +1052,6 @@ public final class PlayerViewController: UIViewController {
         if pip.isPictureInPictureActive {
             pip.stopPictureInPicture()
         } else {
-            renderer.startPiPRendering()
-            pip.updatePlaybackState()
             pip.startPictureInPicture()
         }
     }
@@ -1086,7 +1084,7 @@ public final class PlayerViewController: UIViewController {
         self.updateActiveSkipSegment(at: position, duration: duration)
         
         if self.pipController?.isPictureInPictureActive == true {
-            self.pipController?.updatePlaybackState()
+            self.pipController?.invalidatePlaybackState()
         }
         
         guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
@@ -1177,7 +1175,7 @@ extension PlayerViewController: MPVRendererDelegate {
     }
     func renderer(_ renderer: MPVRenderer, didChangePause isPaused: Bool) {
         updatePlayPauseButton(isPaused: isPaused)
-        pipController?.updatePlaybackState()
+        pipController?.invalidatePlaybackState()
     }
     func renderer(_ renderer: MPVRenderer, didChangeLoading isLoading: Bool) {
         DispatchQueue.main.async { [weak self] in
@@ -1211,28 +1209,44 @@ extension PlayerViewController: MPVRendererDelegate {
 
 // MARK: - PiP Support
 extension PlayerViewController: PiPControllerDelegate {
-    public func pipController(_ c: PiPController, willStartPictureInPicture: Bool) {
-        renderer.startPiPRendering(); pipController?.updatePlaybackState()
+    public func pipControllerWillStart(_ c: PiPController) {
+        renderer.startPiPRendering()
     }
-    public func pipController(_ c: PiPController, didStartPictureInPicture: Bool) {
-        if !didStartPictureInPicture { renderer.stopPiPRendering() }
-        pipController?.updatePlaybackState()
-    }
-    public func pipController(_ c: PiPController, willStopPictureInPicture: Bool) {}
-    public func pipController(_ c: PiPController, didStopPictureInPicture: Bool) {
+    
+    public func pipControllerDidStart(_ c: PiPController) { }
+    
+    public func pipControllerDidFailToStart(_ c: PiPController) {
         renderer.stopPiPRendering()
     }
-    public func pipController(_ c: PiPController, restoreUserInterfaceForPictureInPictureStop handler: @escaping (Bool) -> Void) {
-        if presentedViewController != nil { dismiss(animated: true) { handler(true) } }
-        else { handler(true) }
+    
+    public func pipControllerWillStop(_ c: PiPController) {}
+    
+    public func pipControllerDidStop(_ c: PiPController) {
+        renderer.stopPiPRendering()
     }
-    public func pipControllerPlay(_ c: PiPController) { renderer.play() }
-    public func pipControllerPause(_ c: PiPController) { renderer.pausePlayback() }
-    public func pipController(_ c: PiPController, skipByInterval interval: CMTime) {
+    
+    public func pipController(_ c: PiPController, restoreUserInterfaceForStop handler: @escaping (Bool) -> Void) {
+        if presentedViewController != nil {
+            dismiss(animated: true) { handler(true) }
+        } else {
+            handler(true)
+        }
+    }
+    
+    public func pipControllerPlay(_ c: PiPController) {
+        renderer.play()
+    }
+    
+    public func pipControllerPause(_ c: PiPController) {
+        renderer.pausePlayback()
+    }
+    
+    public func pipController(_ c: PiPController, skipByInterval interval: CMTime, completion: @escaping () -> Void) {
         let target = max(0, cachedPosition + CMTimeGetSeconds(interval))
         renderer.seek(to: target)
-        pipController?.updatePlaybackState()
+        completion()
     }
+    
     public func pipControllerIsPlaying(_ c: PiPController) -> Bool { !renderer.isPausedState }
     public func pipControllerDuration(_ c: PiPController) -> Double { cachedDuration }
     public func pipControllerCurrentTime(_ c: PiPController) -> Double { cachedPosition }
@@ -1240,18 +1254,10 @@ extension PlayerViewController: PiPControllerDelegate {
     @objc private func appDidEnterBackground() {
         DispatchQueue.main.async { [weak self] in
             guard let self, let pip = self.pipController else { return }
-            if !pip.isPictureInPictureActive {
-                self.renderer.startPiPRendering()
-                pip.updatePlaybackState()
-                pip.startPictureInPicture()
-            }
+            guard !pip.isPictureInPictureActive else { return }
+            pip.startPictureInPicture()
         }
     }
     
-    @objc private func appWillEnterForeground() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let pip = self.pipController else { return }
-            if pip.isPictureInPictureActive { pip.stopPictureInPicture() }
-        }
-    }
+    @objc private func appWillEnterForeground() { }
 }
