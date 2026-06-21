@@ -821,8 +821,8 @@ public final class PlayerViewController: UIViewController {
                     value: Binding(get: { model.position }, set: { model.position = $0 }),
                     inRange: 0...max(model.duration, 1.0),
                     activeFillColor: .white, fillColor: .white,
-                    textColor: .white.opacity(0.7), emptyColor: .white.opacity(0.3),
-                    height: 33, highlights: model.highlights,
+                    textColor: .white.opacity(0.7),
+                    height: 25, highlights: model.highlights,
                     onEditingChanged: onEditingChanged
                 )
             }

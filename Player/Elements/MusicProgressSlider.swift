@@ -23,7 +23,6 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
     let activeFillColor: Color
     let fillColor: Color
     let textColor: Color
-    let emptyColor: Color
     let height: CGFloat
     let highlights: [ProgressHighlight]
     let onEditingChanged: (Bool) -> Void
@@ -39,7 +38,6 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
         activeFillColor: Color,
         fillColor: Color,
         textColor: Color,
-        emptyColor: Color,
         height: CGFloat,
         highlights: [ProgressHighlight] = [],
         onEditingChanged: @escaping (Bool) -> Void
@@ -49,7 +47,6 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
         self.activeFillColor = activeFillColor
         self.fillColor = fillColor
         self.textColor = textColor
-        self.emptyColor = emptyColor
         self.height = height
         self.highlights = highlights
         self.onEditingChanged = onEditingChanged
@@ -60,7 +57,13 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
             ZStack {
                 Color.clear
                     .allowsHitTesting(false)
-                VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    Text(timeString(from: progressDuration))
+                        .font(.system(size: 12.5))
+                        .foregroundColor(textColor)
+                        .monospacedDigit()
+                        .fixedSize()
+                    
                     ZStack(alignment: .center) {
                         ZStack(alignment: .center) {
                             Capsule()
@@ -86,7 +89,6 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                                         context.fill(Path(rect), with: .color(highlight.color.opacity(0.7)))
                                     }
                                 }
-                                .frame(width: bounds.size.width)
                                 .mask(Capsule())
                             }
                         }
@@ -109,13 +111,11 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                             })
                     }
                     
-                    HStack {
-                        Text(timeString(from: progressDuration))
-                        Spacer(minLength: 0)
-                        Text("-" + timeString(from: (inRange.upperBound - progressDuration)))
-                    }
-                    .font(.system(size: 12.5))
-                    .foregroundColor(textColor)
+                    Text("-" + timeString(from: (inRange.upperBound - progressDuration)))
+                        .font(.system(size: 12.5))
+                        .foregroundColor(textColor)
+                        .monospacedDigit()
+                        .fixedSize()
                 }
                 .frame(width: isActive ? bounds.size.width * 1.04 : bounds.size.width, alignment: .center)
                 .animation(animation, value: isActive)

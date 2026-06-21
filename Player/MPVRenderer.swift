@@ -145,8 +145,9 @@ final class MPVRenderer {
         mpv = handle
         
         setOption(name: "vo", value: "gpu-next")
-        setOption(name: "gpu-api", value: "metal")
+        setOption(name: "gpu-api", value: "vulcan")
         setOption(name: "hwdec", value: "videotoolbox")
+        setOption(name: "gpu-context", value: "moltenvk")
         
         setOption(name: "idle", value: "yes")
         setOption(name: "hr-seek", value: "yes")
