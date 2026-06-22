@@ -142,7 +142,7 @@ public final class PlayerViewController: UIViewController {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .semibold)
-        b.setImage(UIImage(systemName: "gobackward.15", withConfiguration: cfg), for: .normal)
+        b.setImage(UIImage(systemName: "gobackward", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
         return b
@@ -152,7 +152,7 @@ public final class PlayerViewController: UIViewController {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .semibold)
-        b.setImage(UIImage(systemName: "goforward.15", withConfiguration: cfg), for: .normal)
+        b.setImage(UIImage(systemName: "goforward", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
         return b
@@ -811,7 +811,7 @@ public final class PlayerViewController: UIViewController {
                     inRange: 0...max(model.duration, 1.0),
                     activeFillColor: .white, fillColor: .white,
                     textColor: .white.opacity(0.7),
-                    height: 12, highlights: model.highlights,
+                    height: 8, highlights: model.highlights,
                     onEditingChanged: onEditingChanged
                 )
             }

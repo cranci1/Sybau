@@ -96,19 +96,11 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                         
                         Capsule()
                             .fill(isActive ? activeFillColor : fillColor)
-                            .mask({
-                                HStack {
-                                    Rectangle()
-                                        .frame(
-                                            width: max(
-                                                bounds.size.width * CGFloat(localRealProgress + localTempProgress),
-                                                0
-                                            ),
-                                            alignment: .leading
-                                        )
-                                    Spacer(minLength: 0)
-                                }
-                            })
+                            .mask(alignment: .leading) {
+                                Rectangle()
+                                    .frame(width: max(bounds.size.width * CGFloat(localRealProgress + localTempProgress), 0))
+                                    .animation(isActive ? .none : .interpolatingSpring(stiffness: 100, damping: 15), value: localRealProgress)
+                            }
                     }
                     
                     Text("-" + timeString(from: (inRange.upperBound - progressDuration)))
@@ -122,7 +114,6 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
             }
             .frame(width: bounds.size.width, height: bounds.size.height, alignment: .center)
             .contentShape(Rectangle())
-#if !os(tvOS)
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
                     .updating($isActive) { _, state, _ in
@@ -132,18 +123,14 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                         localTempProgress = T(gesture.translation.width / bounds.size.width)
                         let prg = max(min((localRealProgress + localTempProgress), 1), 0)
                         progressDuration = inRange.upperBound * prg
-                        value = max(min(getPrgValue(), inRange.upperBound), inRange.lowerBound)
                     }
                     .onEnded { _ in
                         localRealProgress = max(min(localRealProgress + localTempProgress, 1), 0)
                         localTempProgress = 0
+                        value = max(min(getPrgValue(), inRange.upperBound), inRange.lowerBound)
+                        onEditingChanged(false)
                     }
             )
-#endif
-            .onChange(of: isActive) { newValue in
-                value = max(min(getPrgValue(), inRange.upperBound), inRange.lowerBound)
-                onEditingChanged(newValue)
-            }
             .onAppear {
                 localRealProgress = getPrgPercentage(value)
             }
@@ -158,11 +145,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
     }
     
     private var animation: Animation {
-        if isActive {
-            return .spring()
-        } else {
-            return .spring(response: 0.5, dampingFraction: 0.5, blendDuration: 0.6)
-        }
+        .spring(response: 0.35, dampingFraction: 0.75)
     }
     
     private func getPrgPercentage(_ value: T) -> T {
