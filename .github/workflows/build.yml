@@ -1,0 +1,50 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-ios:
+    name: iOS
+    runs-on: macos-26
+    steps:
+        - uses: actions/checkout@v6.0.2
+        
+        - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1.7.0
+        with:
+            xcode-version: latest-stable
+        
+        - name: Build
+        run: |
+            xcodebuild build \
+            -scheme Sybau \
+            -destination 'generic/platform=iOS' \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty
+    
+    build-tvos:
+    name: tvOS
+    runs-on: macos-26
+    steps:
+        - uses: actions/checkout@v6.0.2
+        
+        - name: Set up Xcode
+        uses: maxim-lobanov/setup-xcode@v1.7.0
+        with:
+            xcode-version: latest-stable
+        
+        - name: Build
+        run: |
+            xcodebuild build \
+            -scheme Sybau \
+            -destination 'generic/platform=tvOS' \
+            -clonedSourcePackagesDirPath .spm-cache \
+            CODE_SIGNING_ALLOWED=NO \
+            | xcpretty
