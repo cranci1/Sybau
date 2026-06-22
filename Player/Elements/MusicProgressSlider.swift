@@ -114,6 +114,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
             }
             .frame(width: bounds.size.width, height: bounds.size.height, alignment: .center)
             .contentShape(Rectangle())
+#if !os(tvOS)
             .gesture(
                 DragGesture(minimumDistance: 0, coordinateSpace: .local)
                     .updating($isActive) { _, state, _ in
@@ -131,6 +132,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                         onEditingChanged(false)
                     }
             )
+#endif
             .onAppear {
                 localRealProgress = getPrgPercentage(value)
             }
