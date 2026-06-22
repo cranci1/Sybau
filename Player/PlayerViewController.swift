@@ -289,8 +289,7 @@ public final class PlayerViewController: UIViewController {
         
         installProgressHostingControllerIfNeeded()
         
-        NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         
         subscribeToSubtitleSettings()
     }
@@ -360,7 +359,6 @@ public final class PlayerViewController: UIViewController {
     deinit {
         pipController?.delegate = nil
         if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
-        pipController?.invalidate()
         renderer.stopPiPRendering()
         renderer.stop()
         displayLayer.removeFromSuperlayer()
@@ -811,7 +809,7 @@ public final class PlayerViewController: UIViewController {
                     inRange: 0...max(model.duration, 1.0),
                     activeFillColor: .white, fillColor: .white,
                     textColor: .white.opacity(0.7),
-                    height: 8, highlights: model.highlights,
+                    height: 4, highlights: model.highlights,
                     onEditingChanged: onEditingChanged
                 )
             }
@@ -1041,7 +1039,11 @@ public final class PlayerViewController: UIViewController {
         if pip.isPictureInPictureActive {
             pip.stopPictureInPicture()
         } else {
-            pip.startPictureInPicture()
+            renderer.startPiPRendering()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                guard let self, let pip = self.pipController, !pip.isPictureInPictureActive else { return }
+                pip.startPictureInPicture()
+            }
         }
     }
     
@@ -1198,9 +1200,7 @@ extension PlayerViewController: MPVRendererDelegate {
 
 // MARK: - PiP Support
 extension PlayerViewController: PiPControllerDelegate {
-    public func pipControllerWillStart(_ c: PiPController) {
-        renderer.startPiPRendering()
-    }
+    public func pipControllerWillStart(_ c: PiPController) { }
     
     public func pipControllerDidStart(_ c: PiPController) { }
     
@@ -1240,15 +1240,14 @@ extension PlayerViewController: PiPControllerDelegate {
     public func pipControllerDuration(_ c: PiPController) -> Double { cachedDuration }
     public func pipControllerCurrentTime(_ c: PiPController) -> Double { cachedPosition }
     
-    @objc private func appDidEnterBackground() {
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let pip = self.pipController else { return }
-            guard !pip.isPictureInPictureActive else { return }
+    @objc private func appWillResignActive() {
+        guard let pip = pipController, !pip.isPictureInPictureActive else { return }
+        renderer.startPiPRendering()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self, let pip = self.pipController, !pip.isPictureInPictureActive else { return }
             pip.startPictureInPicture()
         }
     }
-    
-    @objc private func appWillEnterForeground() { }
 }
 
 // MARK: - Helpers

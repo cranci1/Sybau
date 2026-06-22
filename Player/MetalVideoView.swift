@@ -10,7 +10,7 @@ final class MetalVideoView: UIView {
     override class var layerClass: AnyClass { CAMetalLayer.self }
     
     var metalLayer: CAMetalLayer {
-        return layer as! CAMetalLayer
+        layer as! CAMetalLayer
     }
     
     var onDrawableSizeChanged: ((CGSize) -> Void)?
@@ -52,8 +52,7 @@ final class MetalVideoView: UIView {
     private func updateMetalLayerLayout(notify: Bool) {
         let scale = window?.screen.scale ?? UIScreen.main.scale
         
-        guard bounds.width > 0, bounds.height > 0,
-              transform == .identity else { return }
+        guard bounds.width > 0, bounds.height > 0, transform == .identity else { return }
         
         let drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
         

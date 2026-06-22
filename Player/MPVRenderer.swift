@@ -17,7 +17,6 @@ protocol MPVRendererDelegate: AnyObject {
     func renderer(_ renderer: MPVRenderer, didBecomeReadyToSeek: Bool)
 }
 
-typealias MPVSoftwareRendererDelegate = MPVRendererDelegate
 
 struct SubtitleStyle {
     let foregroundColor: UIColor
@@ -170,7 +169,6 @@ final class MPVRenderer {
         setOption(name: "demuxer-max-bytes", value: "64M")
         setOption(name: "demuxer-readahead-secs", value: "10")
         
-        configureAudioSession()
         configureWindowEmbedding()
         
         let initStatus = mpv_initialize(handle)
@@ -229,18 +227,6 @@ final class MPVRenderer {
             }
         }
         isStopping = false
-    }
-    
-    // MARK: - Audio session
-    
-    private func configureAudioSession() {
-        do {
-            let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .moviePlayback, options: [.allowAirPlay, .allowBluetoothA2DP])
-            try session.setActive(true)
-        } catch {
-            Logger.shared.log("AVAudioSession setup failed: \(error)", type: "Warn")
-        }
     }
     
     // MARK: - PiP rendering
@@ -418,7 +404,7 @@ final class MPVRenderer {
             link.preferredFrameRateRange = CAFrameRateRange(minimum: 8, maximum: 12, preferred: 12)
             link.add(to: .main, forMode: .common)
             self.pipDisplayLinkProxy = proxy
-            self.pipDisplayLink      = link
+            self.pipDisplayLink = link
         }
     }
     
@@ -450,8 +436,6 @@ final class MPVRenderer {
     }
     
     private func renderFrame(with context: OpaquePointer) {
-        guard !isPausedState else { return }
-        
         let videoSize = currentVideoSize()
         guard videoSize.width > 0, videoSize.height > 0 else { return }
         let targetSize = targetRenderSize(for: videoSize)
@@ -924,7 +908,6 @@ final class MPVRenderer {
     }
 }
 
-typealias MPVSoftwareRenderer = MPVRenderer
 
 private extension UIColor {
     var mpvColorString: String {

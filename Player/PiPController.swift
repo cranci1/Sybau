@@ -108,13 +108,6 @@ public final class PiPController: NSObject {
         pipController?.invalidatePlaybackState()
     }
     
-    func invalidate() {
-        cancelPendingStart()
-        pipController?.invalidatePlaybackState()
-    }
-    
-    // MARK: - Helpers
-    
     private func cancelPendingStart() {
         pendingStartWorkItem?.cancel()
         pendingStartWorkItem = nil
@@ -215,6 +208,6 @@ extension PiPController: AVPictureInPictureSampleBufferPlaybackDelegate {
     public func pictureInPictureControllerIsPlaybackPaused(
         _ pictureInPictureController: AVPictureInPictureController
     ) -> Bool {
-        return !(delegate?.pipControllerIsPlaying(self) ?? false)
+        !(delegate?.pipControllerIsPlaying(self) ?? false)
     }
 }
