@@ -34,11 +34,11 @@ public final class PlayerViewController: UIViewController {
     private let centerPlayPauseButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)
         b.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
-        b.backgroundColor = UIColor(white: 0.2, alpha: 0.5)
-        b.layer.cornerRadius = 35
+        b.layer.cornerRadius = 36
+        b.layer.cornerCurve = .continuous
         b.clipsToBounds = true
         return b
     }()
@@ -141,7 +141,7 @@ public final class PlayerViewController: UIViewController {
     private let skipBackwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
         b.setImage(UIImage(systemName: "gobackward", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
@@ -151,7 +151,7 @@ public final class PlayerViewController: UIViewController {
     private let skipForwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
         b.setImage(UIImage(systemName: "goforward", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
@@ -357,9 +357,6 @@ public final class PlayerViewController: UIViewController {
     }
     
     deinit {
-        pipController?.delegate = nil
-        if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
-        renderer.stopPiPRendering()
         renderer.stop()
         displayLayer.removeFromSuperlayer()
         NotificationCenter.default.removeObserver(self)
@@ -446,10 +443,10 @@ public final class PlayerViewController: UIViewController {
             primaryRenderView.trailingAnchor.constraint(equalTo: videoContainer.trailingAnchor),
             primaryRenderView.bottomAnchor.constraint(equalTo: videoContainer.bottomAnchor),
             
-            progressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
-            progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
-            progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
-            progressContainer.heightAnchor.constraint(equalToConstant: 44),
+            progressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            progressContainer.heightAnchor.constraint(equalToConstant: 28),
             
             controlsOverlayView.topAnchor.constraint(equalTo: videoContainer.topAnchor),
             controlsOverlayView.leadingAnchor.constraint(equalTo: videoContainer.leadingAnchor),
