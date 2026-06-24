@@ -14,8 +14,8 @@
 
 - [x] tvOS 17.5+ support
 - [x] iOS/iPadOS 15.0+ support
-- [x] AirPlay/Chromecast support
-- [x] Picture In Picture support
+- [] AirPlay/Chromecast support
+- [] Picture In Picture support
 - [x] Automatic Trakt & AniList push updates
 - [x] Subtitles based on mpv subtitle loader (libAss too?)
 
