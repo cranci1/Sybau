@@ -21,8 +21,8 @@ public final class PlayerViewController: UIViewController {
         return v
     }()
     
-    private let primaryRenderView: MetalVideoView = {
-        let v = MetalVideoView()
+    private let primaryRenderView: VideoDisplayView = {
+        let v = VideoDisplayView()
         v.translatesAutoresizingMaskIntoConstraints = false
         return v
     }()
@@ -223,7 +223,7 @@ public final class PlayerViewController: UIViewController {
     // MARK: - Renderer & state
     
     private lazy var renderer: MPVRenderer = {
-        let r = MPVRenderer(primaryRenderView: primaryRenderView, pipDisplayLayer: displayLayer)
+        let r = MPVRenderer(primaryDisplayLayer: primaryRenderView.displayLayer, pipDisplayLayer: displayLayer)
         r.delegate = self
         return r
     }()
@@ -323,9 +323,7 @@ public final class PlayerViewController: UIViewController {
         CATransaction.setDisableActions(true)
         primaryRenderView.frame = videoContainer.bounds
         primaryRenderView.layoutIfNeeded()
-        displayLayer.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
-        displayLayer.isHidden = false
-        displayLayer.opacity = 0.001
+        
         if let grad = controlsOverlayView.layer.sublayers?
             .first(where: { $0.name == "gradientLayer" }) {
             grad.frame = controlsOverlayView.bounds
@@ -412,16 +410,14 @@ public final class PlayerViewController: UIViewController {
         view.addSubview(videoContainer)
         videoContainer.addSubview(primaryRenderView)
         
-        displayLayer.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
+        displayLayer.frame = videoContainer.bounds
         displayLayer.videoGravity = .resizeAspect
         displayLayer.backgroundColor = UIColor.black.cgColor
-        displayLayer.opacity = 0.001
-        displayLayer.isHidden = false
         videoContainer.layer.addSublayer(displayLayer)
         
+        view.addSubview(errorBanner)
         videoContainer.addSubview(controlsOverlayView)
         videoContainer.addSubview(loadingIndicator)
-        view.addSubview(errorBanner)
         videoContainer.addSubview(centerPlayPauseButton)
         videoContainer.addSubview(progressContainer)
         videoContainer.addSubview(closeButton)

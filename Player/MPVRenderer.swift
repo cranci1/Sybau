@@ -17,7 +17,6 @@ protocol MPVRendererDelegate: AnyObject {
     func renderer(_ renderer: MPVRenderer, didBecomeReadyToSeek: Bool)
 }
 
-
 struct SubtitleStyle {
     let foregroundColor: UIColor
     let strokeColor: UIColor
@@ -34,15 +33,55 @@ struct SubtitleStyle {
     )
 }
 
+private final class DisplayLayerSink {
+    let layer: AVSampleBufferDisplayLayer
+    var formatDescription: CMVideoFormatDescription?
+    var didFlushForFormatChange = false
+    
+    init(layer: AVSampleBufferDisplayLayer) {
+        self.layer = layer
+    }
+    
+    var status: AVQueuedSampleBufferRenderingStatus {
+        if #available(iOS 18.0, *) { return layer.sampleBufferRenderer.status }
+        return layer.status
+    }
+    
+    var error: Error? {
+        if #available(iOS 18.0, *) { return layer.sampleBufferRenderer.error }
+        return layer.error
+    }
+    
+    func flush(removingDisplayedImage: Bool) {
+        if #available(iOS 18.0, *) {
+            layer.sampleBufferRenderer.flush(removingDisplayedImage: removingDisplayedImage, completionHandler: nil)
+        } else if removingDisplayedImage {
+            layer.flushAndRemoveImage()
+        } else {
+            layer.flush()
+        }
+    }
+    
+    func enqueue(_ sample: CMSampleBuffer) {
+        if #available(iOS 18.0, *) {
+            layer.sampleBufferRenderer.enqueue(sample)
+        } else {
+            layer.enqueue(sample)
+        }
+    }
+    
+    func reset() {
+        formatDescription = nil
+        didFlushForFormatChange = false
+    }
+}
+
 final class MPVRenderer {
     enum RendererError: Error {
         case mpvCreationFailed
         case mpvInitialization(Int32)
         case renderContextCreation(Int32)
     }
-    
-    private weak var primaryRenderView: UIView?
-    private let pipDisplayLayer: AVSampleBufferDisplayLayer
     
     private let renderQueue = DispatchQueue(label: "mpv.render", qos: .userInitiated)
     private let eventQueue  = DispatchQueue(label: "mpv.events", qos: .utility)
@@ -51,7 +90,7 @@ final class MPVRenderer {
     private let renderQueueKey = DispatchSpecificKey<Void>()
     
     private var mpv: OpaquePointer?
-    private var pipRenderContext: OpaquePointer?
+    private var renderContext: OpaquePointer?
     
     private var _videoSize: CGSize = .zero
     private var _isPaused: Bool = true
@@ -61,10 +100,13 @@ final class MPVRenderer {
     
     private var pixelBufferPool: CVPixelBufferPool?
     private var pixelBufferPoolAuxAttributes: CFDictionary?
-    private var formatDescription: CMVideoFormatDescription?
-    private var didFlushForFormatChange = false
     private var poolWidth: Int = 0
     private var poolHeight: Int = 0
+    private var shouldClearPixelBuffer = false
+    
+    private let primarySink: DisplayLayerSink
+    private var pipSink: DisplayLayerSink?
+    private let pipDisplayLayer: AVSampleBufferDisplayLayer
     
     private var currentPreset: PlayerPreset?
     private var currentURL: URL?
@@ -72,7 +114,6 @@ final class MPVRenderer {
     
     private var isRunning = false
     private var isStopping = false
-    private var shouldClearPixelBuffer = false
     private let bgraFormatCString: [CChar] = Array("bgra\0".utf8CString)
     
     weak var delegate: MPVRendererDelegate?
@@ -110,24 +151,22 @@ final class MPVRenderer {
         stateQueue.sync { (_cachedPosition, _cachedDuration) }
     }
     
-    // MARK: - PiP helpers
-    
-    private var pipDisplayLink: CADisplayLink?
-    private var pipDisplayLinkProxy: PiPDisplayLinkProxy?
-    private var pipDisplayLinkRequested = false
-    private var pipFramePumpScheduled = false
+    private var displayLink: CADisplayLink?
+    private var displayLinkProxy: DisplayLinkProxy?
+    private var frameUpdateRequested = false
+    private var framePumpScheduled = false
     private var lastRenderDimensions: CGSize = .zero
     
-    private final class PiPDisplayLinkProxy: NSObject {
+    private final class DisplayLinkProxy: NSObject {
         weak var owner: MPVRenderer?
         init(owner: MPVRenderer) { self.owner = owner }
-        @objc func onDisplayLinkTick() { owner?.pumpPiPFrame() }
+        @objc func onDisplayLinkTick() { owner?.pumpFrame() }
     }
     
     // MARK: - Init / deinit
     
-    init(primaryRenderView: UIView, pipDisplayLayer: AVSampleBufferDisplayLayer) {
-        self.primaryRenderView = primaryRenderView
+    init(primaryDisplayLayer: AVSampleBufferDisplayLayer, pipDisplayLayer: AVSampleBufferDisplayLayer) {
+        self.primarySink = DisplayLayerSink(layer: primaryDisplayLayer)
         self.pipDisplayLayer = pipDisplayLayer
         renderQueue.setSpecific(key: renderQueueKey, value: ())
     }
@@ -143,10 +182,8 @@ final class MPVRenderer {
         }
         mpv = handle
         
-        setOption(name: "vo", value: "gpu-next")
-        setOption(name: "gpu-api", value: "vulcan")
+        setOption(name: "vo", value: "libmpv")
         setOption(name: "hwdec", value: "videotoolbox")
-        setOption(name: "gpu-context", value: "moltenvk")
         
         setOption(name: "idle", value: "yes")
         setOption(name: "hr-seek", value: "yes")
@@ -169,16 +206,17 @@ final class MPVRenderer {
         setOption(name: "demuxer-max-bytes", value: "64M")
         setOption(name: "demuxer-readahead-secs", value: "10")
         
-        configureWindowEmbedding()
-        
         let initStatus = mpv_initialize(handle)
         guard initStatus >= 0 else {
             throw RendererError.mpvInitialization(initStatus)
         }
         
+        try createRenderContext()
+        
         observeProperties()
         installWakeupHandler()
         isRunning = true
+        startDisplayLinkLocked()
     }
     
     func stop() {
@@ -191,14 +229,20 @@ final class MPVRenderer {
         
         renderQueueSync { [weak self] in
             guard let self else { return }
-            self.stopPiPRenderingLocked()
+            self.stopDisplayLinkLocked()
+            if let ctx = self.renderContext {
+                mpv_render_context_set_update_callback(ctx, nil, nil)
+                mpv_render_context_free(ctx)
+                self.renderContext = nil
+            }
             handleForShutdown = self.mpv
             if let handle = handleForShutdown {
                 mpv_set_wakeup_callback(handle, nil, nil)
                 self.command(handle, ["quit"])
                 mpv_wakeup(handle)
             }
-            self.formatDescription = nil
+            self.primarySink.reset()
+            self.pipSink?.reset()
             self.pixelBufferPool = nil
             self.poolWidth = 0
             self.poolHeight = 0
@@ -213,43 +257,35 @@ final class MPVRenderer {
             self.mpv = nil
             self.pixelBufferPool = nil
             self.pixelBufferPoolAuxAttributes = nil
-            self.formatDescription = nil
             self.poolWidth = 0
             self.poolHeight = 0
         }
         
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            if #available(iOS 18.0, *) {
-                self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
-            } else {
-                self.pipDisplayLayer.flushAndRemoveImage()
-            }
+            self.primarySink.flush(removingDisplayedImage: true)
+            self.pipSink?.flush(removingDisplayedImage: true)
         }
         isStopping = false
     }
     
-    // MARK: - PiP rendering
+    // MARK: - PiP attach / detach
     
     func startPiPRendering() {
         renderQueue.async { [weak self] in
-            guard let self, self.isRunning, !self.isStopping else { return }
-            if self.pipRenderContext == nil {
-                do {
-                    try self.createPiPRenderContext()
-                    self.shouldClearPixelBuffer = true
-                } catch {
-                    Logger.shared.log("Failed to create PiP render context: \(error)", type: "Error")
-                    return
-                }
+            guard let self else { return }
+            if self.pipSink == nil {
+                self.pipSink = DisplayLayerSink(layer: self.pipDisplayLayer)
+                self.shouldClearPixelBuffer = true
             }
-            self.pipDisplayLinkRequested = true
-            self.startPiPDisplayLinkLocked()
         }
     }
     
     func stopPiPRendering() {
-        renderQueue.async { [weak self] in self?.stopPiPRenderingLocked() }
+        renderQueue.async { [weak self] in
+            guard let self else { return }
+            self.pipSink = nil
+        }
     }
     
     // MARK: - Load
@@ -296,20 +332,6 @@ final class MPVRenderer {
         }
     }
     
-    private func configureWindowEmbedding() {
-        guard let view = primaryRenderView else {
-            Logger.shared.log("Primary render view missing – mpv window embedding disabled", type: "Warn")
-            return
-        }
-        guard let handle = mpv else { return }
-        let layer = view.layer
-        let rawPtr = UInt(bitPattern: Unmanaged.passUnretained(layer).toOpaque())
-        var wid = Int64(bitPattern: UInt64(rawPtr))
-        withUnsafeMutablePointer(to: &wid) { ptr in
-            _ = mpv_set_option(handle, "wid", MPV_FORMAT_INT64, ptr)
-        }
-    }
-    
     @discardableResult
     private func setProperty(name: String, value: String) -> Int32 {
         guard let handle = mpv else { return -1 }
@@ -341,7 +363,7 @@ final class MPVRenderer {
         setProperty(name: "http-header-fields", value: headerString)
     }
     
-    private func createPiPRenderContext() throws {
+    private func createRenderContext() throws {
         guard let handle = mpv else { return }
         var apiType = MPV_RENDER_API_TYPE_SW
         let status = withUnsafePointer(to: &apiType) { apiTypePtr in
@@ -351,16 +373,16 @@ final class MPVRenderer {
             ]
             return params.withUnsafeMutableBufferPointer { buf -> Int32 in
                 buf.baseAddress?.withMemoryRebound(to: mpv_render_param.self, capacity: buf.count) { p in
-                    mpv_render_context_create(&pipRenderContext, handle, p)
+                    mpv_render_context_create(&renderContext, handle, p)
                 } ?? -1
             }
         }
-        guard status >= 0, pipRenderContext != nil else {
+        guard status >= 0, renderContext != nil else {
             throw RendererError.renderContextCreation(status)
         }
-        mpv_render_context_set_update_callback(pipRenderContext, { ctx in
+        mpv_render_context_set_update_callback(renderContext, { ctx in
             guard let ctx else { return }
-            Unmanaged<MPVRenderer>.fromOpaque(ctx).takeUnretainedValue().requestPiPDisplayLink()
+            Unmanaged<MPVRenderer>.fromOpaque(ctx).takeUnretainedValue().requestDisplayLink()
         }, Unmanaged.passUnretained(self).toOpaque())
     }
     
@@ -386,51 +408,50 @@ final class MPVRenderer {
         }, Unmanaged.passUnretained(self).toOpaque())
     }
     
-    private func requestPiPDisplayLink() {
+    private func requestDisplayLink() {
         renderQueue.async { [weak self] in
-            guard let self, self.pipRenderContext != nil else { return }
-            self.pipDisplayLinkRequested = true
-            self.startPiPDisplayLinkLocked()
+            guard let self, self.renderContext != nil else { return }
+            self.frameUpdateRequested = true
+            self.startDisplayLinkLocked()
         }
     }
     
-    private func startPiPDisplayLinkLocked() {
-        guard pipDisplayLink == nil else { return }
+    private func startDisplayLinkLocked() {
+        guard displayLink == nil else { return }
         DispatchQueue.main.async { [weak self] in
-            guard let self, self.pipDisplayLink == nil else { return }
-            let proxy = PiPDisplayLinkProxy(owner: self)
-            let link  = CADisplayLink(target: proxy, selector: #selector(PiPDisplayLinkProxy.onDisplayLinkTick))
-            
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 8, maximum: 12, preferred: 12)
+            guard let self, self.displayLink == nil else { return }
+            let proxy = DisplayLinkProxy(owner: self)
+            let link = CADisplayLink(target: proxy, selector: #selector(DisplayLinkProxy.onDisplayLinkTick))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 24, maximum: 60, preferred: 60)
             link.add(to: .main, forMode: .common)
-            self.pipDisplayLinkProxy = proxy
-            self.pipDisplayLink = link
+            self.displayLinkProxy = proxy
+            self.displayLink = link
         }
     }
     
-    private func stopPiPDisplayLinkLocked() {
+    private func stopDisplayLinkLocked() {
         DispatchQueue.main.async { [weak self] in
-            self?.pipDisplayLink?.invalidate()
-            self?.pipDisplayLink = nil
-            self?.pipDisplayLinkProxy = nil
+            self?.displayLink?.invalidate()
+            self?.displayLink = nil
+            self?.displayLinkProxy = nil
         }
     }
     
-    private func pumpPiPFrame() {
+    private func pumpFrame() {
         renderQueue.async { [weak self] in
             guard let self, self.isRunning, !self.isStopping else { return }
-            guard let ctx = self.pipRenderContext else { return }
-            guard self.pipDisplayLinkRequested || self.pipFramePumpScheduled else { return }
-            self.pipFramePumpScheduled = true
-            self.performPiPRenderUpdate(with: ctx)
-            self.pipFramePumpScheduled = false
+            guard let ctx = self.renderContext else { return }
+            guard self.frameUpdateRequested || self.framePumpScheduled else { return }
+            self.framePumpScheduled = true
+            self.performRenderUpdate(with: ctx)
+            self.framePumpScheduled = false
         }
     }
     
-    private func performPiPRenderUpdate(with context: OpaquePointer) {
+    private func performRenderUpdate(with context: OpaquePointer) {
         let flags = UInt64(truncatingIfNeeded: mpv_render_context_update(context))
         if flags & UInt64(MPV_RENDER_UPDATE_FRAME.rawValue) != 0 {
-            pipDisplayLinkRequested = false
+            frameUpdateRequested = false
             renderFrame(with: context)
         }
     }
@@ -445,7 +466,7 @@ final class MPVRenderer {
         
         if lastRenderDimensions != targetSize {
             lastRenderDimensions = targetSize
-            Logger.shared.log("PiP rendering at \(width)×\(height)", type: "Info")
+            Logger.shared.log("Rendering at \(width)×\(height)", type: "Info")
         }
         
         if poolWidth != width || poolHeight != height {
@@ -527,7 +548,7 @@ final class MPVRenderer {
         let maxWidth = max(screen.bounds.width  * scale, 1.0)
         let maxHeight = max(screen.bounds.height * scale, 1.0)
         let ratio = max(videoSize.width / maxWidth, videoSize.height / maxHeight, 1)
-        return CGSize(width:  max(1, Int(videoSize.width  / ratio)), height: max(1, Int(videoSize.height / ratio)))
+        return CGSize(width: max(1, Int(videoSize.width / ratio)), height: max(1, Int(videoSize.height / ratio)))
     }
     
     private func createPixelBufferPool(width: Int, height: Int) {
@@ -561,106 +582,89 @@ final class MPVRenderer {
     private func recreatePixelBufferPool(width: Int, height: Int) {
         renderQueueSync {
             self.pixelBufferPool = nil
-            self.formatDescription = nil
             self.poolWidth = 0
             self.poolHeight = 0
         }
         createPixelBufferPool(width: width, height: height)
+        renderQueue.async { [weak self] in
+            self?.primarySink.formatDescription = nil
+            self?.pipSink?.formatDescription = nil
+        }
     }
     
     private func enqueue(buffer: CVPixelBuffer) {
-        let needsFlush = updateFormatDescriptionIfNeeded(for: buffer)
-        var desc: CMVideoFormatDescription?
-        renderQueueSync { desc = self.formatDescription }
-        guard let desc else {
-            Logger.shared.log("Missing formatDescription – skipping frame", type: "Error")
-            return
-        }
+        var sinks: [DisplayLayerSink] = [primarySink]
+        if let pipSink { sinks.append(pipSink) }
         
         let presentationTime = CMClockGetTime(CMClockGetHostTimeClock())
-        var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: presentationTime, decodeTimeStamp: .invalid)
-        var sample: CMSampleBuffer?
-        let result = CMSampleBufferCreateForImageBuffer(
-            allocator: kCFAllocatorDefault, imageBuffer: buffer,
-            dataReady: true, makeDataReadyCallback: nil, refcon: nil,
-            formatDescription: desc, sampleTiming: &timing, sampleBufferOut: &sample)
         
-        guard result == noErr, let sample else {
-            Logger.shared.log("Failed to create sample buffer (\(result))", type: "Error")
-            return
-        }
-        
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let (layerStatus, layerError): (AVQueuedSampleBufferRenderingStatus?, Error?) = {
-                if #available(iOS 18.0, *) {
-                    return (self.pipDisplayLayer.sampleBufferRenderer.status, self.pipDisplayLayer.sampleBufferRenderer.error)
-                } else {
-                    return (self.pipDisplayLayer.status, self.pipDisplayLayer.error)
-                }
-            }()
-            if layerStatus == .failed {
-                if let e = layerError {
-                    Logger.shared.log("PiP layer failed: \(e.localizedDescription)", type: "Error")
-                }
-                if #available(iOS 18.0, *) {
-                    self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
-                } else {
-                    self.pipDisplayLayer.flushAndRemoveImage()
-                }
+        for sink in sinks {
+            let needsFlush = updateFormatDescription(for: buffer, in: sink)
+            guard let desc = sink.formatDescription else {
+                Logger.shared.log("Missing formatDescription – skipping frame", type: "Error")
+                continue
             }
-            if needsFlush {
-                if #available(iOS 18.0, *) {
-                    self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
-                } else {
-                    self.pipDisplayLayer.flushAndRemoveImage()
-                }
-                self.didFlushForFormatChange = true
-            } else if self.didFlushForFormatChange {
-                if #available(iOS 18.0, *) {
-                    self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: false, completionHandler: nil)
-                } else {
-                    self.pipDisplayLayer.flush()
-                }
-                self.didFlushForFormatChange = false
+            
+            var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: presentationTime, decodeTimeStamp: .invalid)
+            var sample: CMSampleBuffer?
+            let result = CMSampleBufferCreateForImageBuffer(
+                allocator: kCFAllocatorDefault, imageBuffer: buffer,
+                dataReady: true, makeDataReadyCallback: nil, refcon: nil,
+                formatDescription: desc, sampleTiming: &timing, sampleBufferOut: &sample)
+            
+            guard result == noErr, let sample else {
+                Logger.shared.log("Failed to create sample buffer (\(result))", type: "Error")
+                continue
             }
-            if self.pipDisplayLayer.controlTimebase == nil {
-                var tb: CMTimebase?
-                if CMTimebaseCreateWithSourceClock(allocator: kCFAllocatorDefault, sourceClock: CMClockGetHostTimeClock(), timebaseOut: &tb) == noErr, let tb {
-                    CMTimebaseSetRate(tb, rate: 1.0)
-                    CMTimebaseSetTime(tb, time: presentationTime)
-                    self.pipDisplayLayer.controlTimebase = tb
+            
+            DispatchQueue.main.async { [weak self] in
+                guard self != nil else { return }
+                if sink.status == .failed {
+                    if let e = sink.error {
+                        Logger.shared.log("Display layer failed: \(e.localizedDescription)", type: "Error")
+                    }
+                    sink.flush(removingDisplayedImage: true)
                 }
-            }
-            if #available(iOS 18.0, *) {
-                self.pipDisplayLayer.sampleBufferRenderer.enqueue(sample)
-            } else {
-                self.pipDisplayLayer.enqueue(sample)
+                if needsFlush {
+                    sink.flush(removingDisplayedImage: true)
+                    sink.didFlushForFormatChange = true
+                } else if sink.didFlushForFormatChange {
+                    sink.flush(removingDisplayedImage: false)
+                    sink.didFlushForFormatChange = false
+                }
+                if sink.layer.controlTimebase == nil {
+                    var tb: CMTimebase?
+                    if CMTimebaseCreateWithSourceClock(allocator: kCFAllocatorDefault, sourceClock: CMClockGetHostTimeClock(), timebaseOut: &tb) == noErr, let tb {
+                        CMTimebaseSetRate(tb, rate: 1.0)
+                        CMTimebaseSetTime(tb, time: presentationTime)
+                        sink.layer.controlTimebase = tb
+                    }
+                }
+                sink.enqueue(sample)
             }
         }
     }
     
-    private func updateFormatDescriptionIfNeeded(for buffer: CVPixelBuffer) -> Bool {
+    private func updateFormatDescription(for buffer: CVPixelBuffer, in sink: DisplayLayerSink) -> Bool {
         var changed = false
         let w = Int32(CVPixelBufferGetWidth(buffer))
         let h = Int32(CVPixelBufferGetHeight(buffer))
         let fmt = CVPixelBufferGetPixelFormatType(buffer)
-        renderQueueSync {
-            var needsRecreate = false
-            if let desc = self.formatDescription {
-                let dims = CMVideoFormatDescriptionGetDimensions(desc)
-                let pf = CMFormatDescriptionGetMediaSubType(desc)
-                if dims.width != w || dims.height != h || pf != fmt { needsRecreate = true }
-            } else {
-                needsRecreate = true
-            }
-            if needsRecreate {
-                var newDesc: CMVideoFormatDescription?
-                if CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: buffer, formatDescriptionOut: &newDesc) == noErr,
-                   let newDesc {
-                    self.formatDescription = newDesc
-                    changed = true
-                }
+        
+        var needsRecreate = false
+        if let desc = sink.formatDescription {
+            let dims = CMVideoFormatDescriptionGetDimensions(desc)
+            let pf = CMFormatDescriptionGetMediaSubType(desc)
+            if dims.width != w || dims.height != h || pf != fmt { needsRecreate = true }
+        } else {
+            needsRecreate = true
+        }
+        if needsRecreate {
+            var newDesc: CMVideoFormatDescription?
+            if CMVideoFormatDescriptionCreateForImageBuffer(allocator: kCFAllocatorDefault, imageBuffer: buffer, formatDescriptionOut: &newDesc) == noErr,
+               let newDesc {
+                sink.formatDescription = newDesc
+                changed = true
             }
         }
         return changed
@@ -680,35 +684,8 @@ final class MPVRenderer {
         setVideoSize(size)
         renderQueue.async { [weak self] in
             guard let self else { return }
-            if self.pipRenderContext != nil,
-               (self.poolWidth != width || self.poolHeight != height) {
+            if self.renderContext != nil, (self.poolWidth != width || self.poolHeight != height) {
                 self.recreatePixelBufferPool(width: max(width, 0), height: max(height, 0))
-            }
-        }
-    }
-    
-    private func stopPiPRenderingLocked() {
-        stopPiPDisplayLinkLocked()
-        if let ctx = pipRenderContext {
-            mpv_render_context_set_update_callback(ctx, nil, nil)
-            mpv_render_context_free(ctx)
-            pipRenderContext = nil
-        }
-        pipDisplayLinkRequested = false
-        pipFramePumpScheduled = false
-        pixelBufferPool = nil
-        pixelBufferPoolAuxAttributes = nil
-        formatDescription = nil
-        didFlushForFormatChange = false
-        poolWidth = 0
-        poolHeight = 0
-        lastRenderDimensions = .zero
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if #available(iOS 18.0, *) {
-                self.pipDisplayLayer.sampleBufferRenderer.flush(removingDisplayedImage: true, completionHandler: nil)
-            } else {
-                self.pipDisplayLayer.flushAndRemoveImage()
             }
         }
     }
@@ -907,7 +884,6 @@ final class MPVRenderer {
         setProperty(name: "sub-border-size", value: String(format: "%.2f", max(style.strokeWidth, 0)))
     }
 }
-
 
 private extension UIColor {
     var mpvColorString: String {
