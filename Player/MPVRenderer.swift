@@ -102,11 +102,8 @@ final class MPVRenderer {
     private var pixelBufferPoolAuxAttributes: CFDictionary?
     private var poolWidth: Int = 0
     private var poolHeight: Int = 0
-    private var shouldClearPixelBuffer = false
     
     private let primarySink: DisplayLayerSink
-    private var pipSink: DisplayLayerSink?
-    private let pipDisplayLayer: AVSampleBufferDisplayLayer
     
     private var currentPreset: PlayerPreset?
     private var currentURL: URL?
@@ -165,9 +162,8 @@ final class MPVRenderer {
     
     // MARK: - Init / deinit
     
-    init(primaryDisplayLayer: AVSampleBufferDisplayLayer, pipDisplayLayer: AVSampleBufferDisplayLayer) {
+    init(primaryDisplayLayer: AVSampleBufferDisplayLayer) {
         self.primarySink = DisplayLayerSink(layer: primaryDisplayLayer)
-        self.pipDisplayLayer = pipDisplayLayer
         renderQueue.setSpecific(key: renderQueueKey, value: ())
     }
     
@@ -242,7 +238,6 @@ final class MPVRenderer {
                 mpv_wakeup(handle)
             }
             self.primarySink.reset()
-            self.pipSink?.reset()
             self.pixelBufferPool = nil
             self.poolWidth = 0
             self.poolHeight = 0
@@ -264,32 +259,8 @@ final class MPVRenderer {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.primarySink.flush(removingDisplayedImage: true)
-            self.pipSink?.flush(removingDisplayedImage: true)
         }
         isStopping = false
-    }
-    
-    // MARK: - PiP attach / detach
-    
-    func startPiPRendering() {
-        renderQueue.async { [weak self] in
-            guard let self, self.isRunning, !self.isStopping else { return }
-            if self.pipSink == nil {
-                self.pipSink = DisplayLayerSink(layer: self.pipDisplayLayer)
-                self.shouldClearPixelBuffer = true
-            }
-            
-            if let ctx = self.renderContext {
-                self.renderFrame(with: ctx)
-            }
-        }
-    }
-    
-    func stopPiPRendering() {
-        renderQueue.async { [weak self] in
-            guard let self else { return }
-            self.pipSink = nil
-        }
     }
     
     // MARK: - Load
@@ -508,11 +479,6 @@ final class MPVRenderer {
             return
         }
         
-        if shouldClearPixelBuffer {
-            memset(base, 0, CVPixelBufferGetDataSize(buffer))
-            shouldClearPixelBuffer = false
-        }
-        
         var dims: [Int32] = [Int32(width), Int32(height)]
         let stride = Int32(CVPixelBufferGetBytesPerRow(buffer))
         
@@ -592,60 +558,56 @@ final class MPVRenderer {
         createPixelBufferPool(width: width, height: height)
         renderQueue.async { [weak self] in
             self?.primarySink.formatDescription = nil
-            self?.pipSink?.formatDescription = nil
         }
     }
     
     private func enqueue(buffer: CVPixelBuffer) {
-        var sinks: [DisplayLayerSink] = [primarySink]
-        if let pipSink { sinks.append(pipSink) }
+        let sink = primarySink
         
         let presentationTime = CMClockGetTime(CMClockGetHostTimeClock())
         
-        for sink in sinks {
-            let needsFlush = updateFormatDescription(for: buffer, in: sink)
-            guard let desc = sink.formatDescription else {
-                Logger.shared.log("Missing formatDescription – skipping frame", type: "Error")
-                continue
-            }
-            
-            var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: presentationTime, decodeTimeStamp: .invalid)
-            var sample: CMSampleBuffer?
-            let result = CMSampleBufferCreateForImageBuffer(
-                allocator: kCFAllocatorDefault, imageBuffer: buffer,
-                dataReady: true, makeDataReadyCallback: nil, refcon: nil,
-                formatDescription: desc, sampleTiming: &timing, sampleBufferOut: &sample)
-            
-            guard result == noErr, let sample else {
-                Logger.shared.log("Failed to create sample buffer (\(result))", type: "Error")
-                continue
-            }
-            
-            DispatchQueue.main.async { [weak self] in
-                guard self != nil else { return }
-                if sink.status == .failed {
-                    if let e = sink.error {
-                        Logger.shared.log("Display layer failed: \(e.localizedDescription)", type: "Error")
-                    }
-                    sink.flush(removingDisplayedImage: true)
+        let needsFlush = updateFormatDescription(for: buffer, in: sink)
+        guard let desc = sink.formatDescription else {
+            Logger.shared.log("Missing formatDescription – skipping frame", type: "Error")
+            return
+        }
+        
+        var timing = CMSampleTimingInfo(duration: .invalid, presentationTimeStamp: presentationTime, decodeTimeStamp: .invalid)
+        var sample: CMSampleBuffer?
+        let result = CMSampleBufferCreateForImageBuffer(
+            allocator: kCFAllocatorDefault, imageBuffer: buffer,
+            dataReady: true, makeDataReadyCallback: nil, refcon: nil,
+            formatDescription: desc, sampleTiming: &timing, sampleBufferOut: &sample)
+        
+        guard result == noErr, let sample else {
+            Logger.shared.log("Failed to create sample buffer (\(result))", type: "Error")
+            return
+        }
+        
+        DispatchQueue.main.async { [weak self] in
+            guard self != nil else { return }
+            if sink.status == .failed {
+                if let e = sink.error {
+                    Logger.shared.log("Display layer failed: \(e.localizedDescription)", type: "Error")
                 }
-                if needsFlush {
-                    sink.flush(removingDisplayedImage: true)
-                    sink.didFlushForFormatChange = true
-                } else if sink.didFlushForFormatChange {
-                    sink.flush(removingDisplayedImage: false)
-                    sink.didFlushForFormatChange = false
-                }
-                if sink.layer.controlTimebase == nil {
-                    var tb: CMTimebase?
-                    if CMTimebaseCreateWithSourceClock(allocator: kCFAllocatorDefault, sourceClock: CMClockGetHostTimeClock(), timebaseOut: &tb) == noErr, let tb {
-                        CMTimebaseSetRate(tb, rate: 1.0)
-                        CMTimebaseSetTime(tb, time: presentationTime)
-                        sink.layer.controlTimebase = tb
-                    }
-                }
-                sink.enqueue(sample)
+                sink.flush(removingDisplayedImage: true)
             }
+            if needsFlush {
+                sink.flush(removingDisplayedImage: true)
+                sink.didFlushForFormatChange = true
+            } else if sink.didFlushForFormatChange {
+                sink.flush(removingDisplayedImage: false)
+                sink.didFlushForFormatChange = false
+            }
+            if sink.layer.controlTimebase == nil {
+                var tb: CMTimebase?
+                if CMTimebaseCreateWithSourceClock(allocator: kCFAllocatorDefault, sourceClock: CMClockGetHostTimeClock(), timebaseOut: &tb) == noErr, let tb {
+                    CMTimebaseSetRate(tb, rate: 1.0)
+                    CMTimebaseSetTime(tb, time: presentationTime)
+                    sink.layer.controlTimebase = tb
+                }
+            }
+            sink.enqueue(sample)
         }
     }
     

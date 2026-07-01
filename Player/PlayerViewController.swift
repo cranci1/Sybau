@@ -27,8 +27,6 @@ public final class PlayerViewController: UIViewController {
         return v
     }()
     
-    private let displayLayer = AVSampleBufferDisplayLayer()
-    
     // MARK: - Controls
     
     private let centerPlayPauseButton: UIButton = {
@@ -223,7 +221,7 @@ public final class PlayerViewController: UIViewController {
     // MARK: - Renderer & state
     
     private lazy var renderer: MPVRenderer = {
-        let r = MPVRenderer(primaryDisplayLayer: primaryRenderView.displayLayer, pipDisplayLayer: displayLayer)
+        let r = MPVRenderer(primaryDisplayLayer: primaryRenderView.displayLayer)
         r.delegate = self
         return r
     }()
@@ -278,7 +276,7 @@ public final class PlayerViewController: UIViewController {
             presentStartupErrorAlert(message: "Failed to start renderer: \(error)")
         }
         
-        pipController = PiPController(sampleBufferDisplayLayer: displayLayer)
+        pipController = PiPController(sampleBufferDisplayLayer: primaryRenderView.displayLayer)
         pipController?.delegate = self
         
         showControlsTemporarily()
@@ -356,7 +354,6 @@ public final class PlayerViewController: UIViewController {
     
     deinit {
         renderer.stop()
-        displayLayer.removeFromSuperlayer()
         NotificationCenter.default.removeObserver(self)
     }
     
@@ -409,12 +406,6 @@ public final class PlayerViewController: UIViewController {
     private func setupLayout() {
         view.addSubview(videoContainer)
         videoContainer.addSubview(primaryRenderView)
-        
-        displayLayer.opacity = 0.001
-        displayLayer.frame = videoContainer.bounds
-        displayLayer.videoGravity = .resizeAspect
-        displayLayer.backgroundColor = UIColor.black.cgColor
-        videoContainer.layer.addSublayer(displayLayer)
         
         view.addSubview(errorBanner)
         videoContainer.addSubview(controlsOverlayView)
@@ -745,7 +736,6 @@ public final class PlayerViewController: UIViewController {
     private func loadCurrentSubtitle() {
         guard currentSubtitleIndex < subtitleURLs.count else { return }
         let urlString = subtitleURLs[currentSubtitleIndex]
-        renderer.applySubtitleStyle(currentSubtitleStyle())
         renderer.clearCurrentSubtitleTrack()
         renderer.addSubtitleTrack(urlString: urlString)
         renderer.setSubtitleVisible(subtitleIsVisible)
@@ -1033,11 +1023,7 @@ public final class PlayerViewController: UIViewController {
         if pip.isPictureInPictureActive {
             pip.stopPictureInPicture()
         } else {
-            renderer.startPiPRendering()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                guard let self, let pip = self.pipController, !pip.isPictureInPictureActive else { return }
-                pip.startPictureInPicture()
-            }
+            pip.startPictureInPicture()
         }
     }
     
@@ -1179,6 +1165,8 @@ extension PlayerViewController: MPVRendererDelegate {
     func renderer(_ renderer: MPVRenderer, didBecomeReadyToSeek: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            self.renderer.applySubtitleStyle(self.currentSubtitleStyle())
+            self.renderer.setSubtitleVisible(self.subtitleIsVisible)
             if let t = self.pendingSeekTime {
                 self.renderer.seek(to: t)
                 Logger.shared.log("Resumed from \(Int(t))s", type: "Progress")
@@ -1190,6 +1178,11 @@ extension PlayerViewController: MPVRendererDelegate {
             }
         }
     }
+    func renderer(_ renderer: MPVRenderer, didActivateSubtitleTrack trackID: Int) {
+        guard trackID > 0 else { return }
+        renderer.applySubtitleStyle(currentSubtitleStyle())
+        renderer.setSubtitleVisible(subtitleIsVisible)
+    }
 }
 
 // MARK: - PiP Support
@@ -1198,15 +1191,11 @@ extension PlayerViewController: PiPControllerDelegate {
     
     public func pipControllerDidStart(_ c: PiPController) { }
     
-    public func pipControllerDidFailToStart(_ c: PiPController) {
-        renderer.stopPiPRendering()
-    }
+    public func pipControllerDidFailToStart(_ c: PiPController) { }
     
     public func pipControllerWillStop(_ c: PiPController) {}
     
-    public func pipControllerDidStop(_ c: PiPController) {
-        renderer.stopPiPRendering()
-    }
+    public func pipControllerDidStop(_ c: PiPController) { }
     
     public func pipController(_ c: PiPController, restoreUserInterfaceForStop handler: @escaping (Bool) -> Void) {
         if presentedViewController != nil {
@@ -1236,11 +1225,7 @@ extension PlayerViewController: PiPControllerDelegate {
     
     @objc private func appWillResignActive() {
         guard let pip = pipController, !pip.isPictureInPictureActive else { return }
-        renderer.startPiPRendering()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self, let pip = self.pipController, !pip.isPictureInPictureActive else { return }
-            pip.startPictureInPicture()
-        }
+        pip.startPictureInPicture()
     }
 }
 
