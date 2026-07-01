@@ -273,10 +273,14 @@ final class MPVRenderer {
     
     func startPiPRendering() {
         renderQueue.async { [weak self] in
-            guard let self else { return }
+            guard let self, self.isRunning, !self.isStopping else { return }
             if self.pipSink == nil {
                 self.pipSink = DisplayLayerSink(layer: self.pipDisplayLayer)
                 self.shouldClearPixelBuffer = true
+            }
+            
+            if let ctx = self.renderContext {
+                self.renderFrame(with: ctx)
             }
         }
     }

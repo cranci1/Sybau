@@ -410,6 +410,7 @@ public final class PlayerViewController: UIViewController {
         view.addSubview(videoContainer)
         videoContainer.addSubview(primaryRenderView)
         
+        displayLayer.opacity = 0.001
         displayLayer.frame = videoContainer.bounds
         displayLayer.videoGravity = .resizeAspect
         displayLayer.backgroundColor = UIColor.black.cgColor
