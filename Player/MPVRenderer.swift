@@ -849,6 +849,12 @@ final class MPVRenderer {
         setProperty(name: "sub-border-color", value: style.strokeColor.mpvColorString)
         setProperty(name: "sub-border-size", value: String(format: "%.2f", max(style.strokeWidth, 0)))
     }
+    
+    // MARK: - Volume Control
+    func setVolume(_ volume: Float) {
+        let value = Int(volume * 100)
+        setProperty(name: "volume", value: String(value))
+    }
 }
 
 private extension UIColor {

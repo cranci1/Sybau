@@ -6,6 +6,8 @@
 import UIKit
 import SwiftUI
 import AVFoundation
+import AVKit
+
 #if os(tvOS)
 import TVUIKit
 #endif
@@ -32,10 +34,11 @@ public final class PlayerViewController: UIViewController {
     private let centerPlayPauseButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
         b.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
-        b.tintColor = .white
-        b.layer.cornerRadius = 36
+        b.tintColor = .black
+        b.backgroundColor = .white
+        b.layer.cornerRadius = 28
         b.layer.cornerCurve = .continuous
         b.clipsToBounds = true
         return b
@@ -53,7 +56,7 @@ public final class PlayerViewController: UIViewController {
     private let controlsOverlayView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = UIColor(white: 0.0, alpha: 0.4)
+        v.backgroundColor = .clear
         v.alpha = 0.0
         v.isUserInteractionEnabled = false
         return v
@@ -136,12 +139,37 @@ public final class PlayerViewController: UIViewController {
         return b
     }()
     
+    private let routePickerTop: AVRoutePickerView = {
+        let r = AVRoutePickerView()
+        r.translatesAutoresizingMaskIntoConstraints = false
+        r.tintColor = .white
+        r.activeTintColor = .white
+        r.prioritizesVideoDevices = true
+        r.alpha = 0.0
+        return r
+    }()
+    
+    private let volumeSlider: UISlider = {
+        let s = UISlider()
+        s.translatesAutoresizingMaskIntoConstraints = false
+        s.minimumTrackTintColor = .white
+        s.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.2)
+        s.thumbTintColor = .white
+        s.minimumValue = 0
+        s.maximumValue = 1
+        s.value = 1.0
+        s.alpha = 0.0
+        return s
+    }()
+    
     private let skipBackwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
-        b.setImage(UIImage(systemName: "gobackward", withConfiguration: cfg), for: .normal)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        b.setImage(UIImage(systemName: "gobackward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
+        b.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
+        b.layer.cornerRadius = 22
         b.alpha = 0.0
         return b
     }()
@@ -149,9 +177,11 @@ public final class PlayerViewController: UIViewController {
     private let skipForwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
-        b.setImage(UIImage(systemName: "goforward", withConfiguration: cfg), for: .normal)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        b.setImage(UIImage(systemName: "goforward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
+        b.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
+        b.layer.cornerRadius = 22
         b.alpha = 0.0
         return b
     }()
@@ -199,6 +229,56 @@ public final class PlayerViewController: UIViewController {
         b.alpha = 0.0
         b.isHidden = true
         return b
+    }()
+    
+    private let subtitleLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.textColor = UIColor.white.withAlphaComponent(0.8)
+        l.font = .systemFont(ofSize: 14, weight: .medium)
+        l.numberOfLines = 1
+        l.alpha = 0.0
+        return l
+    }()
+    
+    private let titleLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.textColor = .white
+        l.font = .systemFont(ofSize: 20, weight: .bold)
+        l.numberOfLines = 1
+        l.alpha = 0.0
+        return l
+    }()
+    
+    private let titleChevronButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        b.setImage(UIImage(systemName: "chevron.right", withConfiguration: cfg), for: .normal)
+        b.tintColor = .white
+        b.alpha = 0.0
+        return b
+    }()
+    
+    private let moreButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        let cfg = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        b.setImage(UIImage(systemName: "ellipsis.circle", withConfiguration: cfg), for: .normal)
+        b.tintColor = .white
+        b.alpha = 0.0
+        return b
+    }()
+    
+    private let routePickerBottom: AVRoutePickerView = {
+        let r = AVRoutePickerView()
+        r.translatesAutoresizingMaskIntoConstraints = false
+        r.tintColor = .white
+        r.activeTintColor = .white
+        r.prioritizesVideoDevices = true
+        r.alpha = 0.0
+        return r
     }()
     
     private let progressContainer: UIView = {
@@ -290,6 +370,10 @@ public final class PlayerViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         
         subscribeToSubtitleSettings()
+        
+        volumeSlider.addTarget(self, action: #selector(volumeSliderChanged(_:)), for: .valueChanged)
+        moreButton.addTarget(self, action: #selector(moreButtonTapped), for: .touchUpInside)
+        titleChevronButton.addTarget(self, action: #selector(titleChevronTapped), for: .touchUpInside)
     }
     
     public override func viewDidAppear(_ animated: Bool) {
@@ -374,9 +458,21 @@ public final class PlayerViewController: UIViewController {
         if let info = mediaInfo {
             prepareSeekToLastPosition(for: info)
             fetchIntroDBSegments(for: info)
+            updateMediaInfoUI(for: info)
         }
         if let subs = initialSubtitles, !subs.isEmpty {
             pendingSubtitleURLs = subs
+        }
+    }
+    
+    private func updateMediaInfoUI(for info: MediaInfo) {
+        switch info {
+        case .movie(_, let title):
+            subtitleLabel.text = "Movie"
+            titleLabel.text = title
+        case .episode(let showTitle, _, let season, let episode):
+            subtitleLabel.text = String(format: "S%d E%d", season, episode)
+            titleLabel.text = "\(showTitle)"
         }
     }
     
@@ -412,13 +508,24 @@ public final class PlayerViewController: UIViewController {
         videoContainer.addSubview(loadingIndicator)
         videoContainer.addSubview(centerPlayPauseButton)
         videoContainer.addSubview(progressContainer)
+        
         videoContainer.addSubview(closeButton)
         videoContainer.addSubview(pipButton)
+        videoContainer.addSubview(routePickerTop)
+        
+        videoContainer.addSubview(volumeSlider)
+        
         videoContainer.addSubview(skipBackwardButton)
         videoContainer.addSubview(skipForwardButton)
         videoContainer.addSubview(speedIndicatorLabel)
         videoContainer.addSubview(subtitleButton)
         videoContainer.addSubview(skipSegmentButton)
+        
+        videoContainer.addSubview(subtitleLabel)
+        videoContainer.addSubview(titleLabel)
+        videoContainer.addSubview(titleChevronButton)
+        videoContainer.addSubview(routePickerBottom)
+        videoContainer.addSubview(moreButton)
         
         NSLayoutConstraint.activate([
             videoContainer.topAnchor.constraint(equalTo: view.topAnchor),
@@ -431,11 +538,6 @@ public final class PlayerViewController: UIViewController {
             primaryRenderView.trailingAnchor.constraint(equalTo: videoContainer.trailingAnchor),
             primaryRenderView.bottomAnchor.constraint(equalTo: videoContainer.bottomAnchor),
             
-            progressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
-            progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            progressContainer.heightAnchor.constraint(equalToConstant: 28),
-            
             controlsOverlayView.topAnchor.constraint(equalTo: videoContainer.topAnchor),
             controlsOverlayView.leadingAnchor.constraint(equalTo: videoContainer.leadingAnchor),
             controlsOverlayView.trailingAnchor.constraint(equalTo: videoContainer.trailingAnchor),
@@ -446,48 +548,97 @@ public final class PlayerViewController: UIViewController {
             errorBanner.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.92),
             errorBanner.heightAnchor.constraint(greaterThanOrEqualToConstant: 40),
             
+            progressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
+            progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            progressContainer.heightAnchor.constraint(equalToConstant: 28),
+            
+            closeButton.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor, constant: 4),
+            closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            closeButton.widthAnchor.constraint(equalToConstant: 36),
+            closeButton.heightAnchor.constraint(equalToConstant: 36),
+            
+            pipButton.leadingAnchor.constraint(equalTo: closeButton.trailingAnchor, constant: 12),
+            pipButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            pipButton.widthAnchor.constraint(equalToConstant: 36),
+            pipButton.heightAnchor.constraint(equalToConstant: 36),
+            
+            routePickerTop.leadingAnchor.constraint(equalTo: pipButton.trailingAnchor, constant: 12),
+            routePickerTop.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            routePickerTop.widthAnchor.constraint(equalToConstant: 36),
+            routePickerTop.heightAnchor.constraint(equalToConstant: 36),
+            
+            volumeSlider.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            volumeSlider.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            volumeSlider.widthAnchor.constraint(equalToConstant: 100),
+            volumeSlider.heightAnchor.constraint(equalToConstant: 24),
+            
             centerPlayPauseButton.centerXAnchor.constraint(equalTo: videoContainer.centerXAnchor),
-            centerPlayPauseButton.centerYAnchor.constraint(equalTo: videoContainer.centerYAnchor),
-            centerPlayPauseButton.widthAnchor.constraint(equalToConstant: 70),
-            centerPlayPauseButton.heightAnchor.constraint(equalToConstant: 70),
+            centerPlayPauseButton.centerYAnchor.constraint(equalTo: videoContainer.centerYAnchor, constant: -24),
+            centerPlayPauseButton.widthAnchor.constraint(equalToConstant: 56),
+            centerPlayPauseButton.heightAnchor.constraint(equalToConstant: 56),
             
             loadingIndicator.centerXAnchor.constraint(equalTo: centerPlayPauseButton.centerXAnchor),
             loadingIndicator.centerYAnchor.constraint(equalTo: centerPlayPauseButton.centerYAnchor),
             
-            closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            closeButton.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor, constant: 4),
-            closeButton.widthAnchor.constraint(equalToConstant: 36),
-            closeButton.heightAnchor.constraint(equalToConstant: 36),
-            
-            pipButton.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            pipButton.leadingAnchor.constraint(equalTo: closeButton.trailingAnchor, constant: 16),
-            pipButton.widthAnchor.constraint(equalToConstant: 36),
-            pipButton.heightAnchor.constraint(equalToConstant: 36),
-            
             skipBackwardButton.centerYAnchor.constraint(equalTo: centerPlayPauseButton.centerYAnchor),
-            skipBackwardButton.trailingAnchor.constraint(equalTo: centerPlayPauseButton.leadingAnchor, constant: -48),
-            skipBackwardButton.widthAnchor.constraint(equalToConstant: 50),
-            skipBackwardButton.heightAnchor.constraint(equalToConstant: 50),
+            skipBackwardButton.trailingAnchor.constraint(equalTo: centerPlayPauseButton.leadingAnchor, constant: -24),
+            skipBackwardButton.widthAnchor.constraint(equalToConstant: 44),
+            skipBackwardButton.heightAnchor.constraint(equalToConstant: 44),
             
             skipForwardButton.centerYAnchor.constraint(equalTo: centerPlayPauseButton.centerYAnchor),
-            skipForwardButton.leadingAnchor.constraint(equalTo: centerPlayPauseButton.trailingAnchor, constant: 48),
-            skipForwardButton.widthAnchor.constraint(equalToConstant: 50),
-            skipForwardButton.heightAnchor.constraint(equalToConstant: 50),
+            skipForwardButton.leadingAnchor.constraint(equalTo: centerPlayPauseButton.trailingAnchor, constant: 24),
+            skipForwardButton.widthAnchor.constraint(equalToConstant: 44),
+            skipForwardButton.heightAnchor.constraint(equalToConstant: 44),
             
             speedIndicatorLabel.topAnchor.constraint(equalTo: videoContainer.safeAreaLayoutGuide.topAnchor, constant: 20),
             speedIndicatorLabel.centerXAnchor.constraint(equalTo: videoContainer.centerXAnchor),
             speedIndicatorLabel.widthAnchor.constraint(equalToConstant: 100),
             speedIndicatorLabel.heightAnchor.constraint(equalToConstant: 40),
             
+            subtitleLabel.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+            subtitleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -20),
+            
+            titleLabel.leadingAnchor.constraint(equalTo: subtitleLabel.leadingAnchor),
+            titleLabel.bottomAnchor.constraint(equalTo: subtitleLabel.topAnchor, constant: -4),
+            
+            titleChevronButton.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
+            titleChevronButton.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
+            titleChevronButton.widthAnchor.constraint(equalToConstant: 24),
+            titleChevronButton.heightAnchor.constraint(equalToConstant: 24),
+            
+            moreButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -20),
+            moreButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+            moreButton.widthAnchor.constraint(equalToConstant: 32),
+            moreButton.heightAnchor.constraint(equalToConstant: 32),
+            
+            routePickerBottom.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -12),
+            routePickerBottom.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
+            routePickerBottom.widthAnchor.constraint(equalToConstant: 32),
+            routePickerBottom.heightAnchor.constraint(equalToConstant: 32),
+            
+            subtitleButton.trailingAnchor.constraint(equalTo: routePickerBottom.leadingAnchor, constant: -8),
+            subtitleButton.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
+            subtitleButton.widthAnchor.constraint(equalToConstant: 32),
+            subtitleButton.heightAnchor.constraint(equalToConstant: 32),
+            
             skipSegmentButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
             skipSegmentButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -14),
             skipSegmentButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 36),
-            
-            subtitleButton.trailingAnchor.constraint(equalTo: skipSegmentButton.leadingAnchor, constant: -8),
-            subtitleButton.centerYAnchor.constraint(equalTo: skipSegmentButton.centerYAnchor),
-            subtitleButton.widthAnchor.constraint(equalToConstant: 32),
-            subtitleButton.heightAnchor.constraint(equalToConstant: 32),
         ])
+    }
+    
+    private func setupGradientOverlay() {
+        let gradientLayer = CAGradientLayer()
+        gradientLayer.name = "gradientLayer"
+        gradientLayer.colors = [
+            UIColor.black.withAlphaComponent(0.5).cgColor,
+            UIColor.clear.cgColor,
+            UIColor.clear.cgColor,
+            UIColor.black.withAlphaComponent(0.5).cgColor
+        ]
+        gradientLayer.locations = [0.0, 0.2, 0.8, 1.0]
+        controlsOverlayView.layer.insertSublayer(gradientLayer, at: 0)
     }
     
     private func setupActions() {
@@ -510,7 +661,6 @@ public final class PlayerViewController: UIViewController {
     }
     
     // MARK: - tvOS Focus
-    /// idk if ts works
     
 #if os(tvOS)
     public override func didUpdateFocus(in context: UIFocusUpdateContext, with coordinator: UIFocusAnimationCoordinator) {
@@ -528,7 +678,7 @@ public final class PlayerViewController: UIViewController {
     
     public override var preferredFocusEnvironments: [UIFocusEnvironment] {
         [centerPlayPauseButton, skipBackwardButton, skipForwardButton,
-         pipButton, closeButton, subtitleButton]
+         closeButton, pipButton, subtitleButton]
     }
 #endif
     
@@ -588,7 +738,7 @@ public final class PlayerViewController: UIViewController {
     private func updateSkipButtonIcons() {
         let interval = Int(skipInterval)
         let suffix = Self.availableSkipSymbolValues.contains(interval) ? ".\(interval)" : ""
-        let cfg = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
         skipBackwardButton.setImage(UIImage(systemName: "gobackward\(suffix)", withConfiguration: cfg), for: .normal)
         skipForwardButton.setImage(UIImage(systemName: "goforward\(suffix)", withConfiguration: cfg), for: .normal)
     }
@@ -611,6 +761,28 @@ public final class PlayerViewController: UIViewController {
         showControlsTemporarily()
     }
     
+    // MARK: - Volume & More actions
+    
+    @objc private func volumeSliderChanged(_ sender: UISlider) {
+        renderer.setVolume(sender.value)
+    }
+    
+    @objc private func moreButtonTapped() {
+        let actionSheet = UIAlertController(title: "Options", message: nil, preferredStyle: .actionSheet)
+        let speedOptions = [1.0, 1.25, 1.5, 2.0]
+        for speed in speedOptions {
+            actionSheet.addAction(UIAlertAction(title: "Speed \(speed)x", style: .default) { [weak self] _ in
+                self?.renderer.setSpeed(speed)
+            })
+        }
+        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        present(actionSheet, animated: true)
+    }
+    
+    @objc private func titleChevronTapped() { }
+    
+    // MARK: - Subtitle menu
+    
     private func subscribeToSubtitleSettings() {
         NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange), name: UserDefaults.didChangeNotification, object: nil)
     }
@@ -622,8 +794,6 @@ public final class PlayerViewController: UIViewController {
         updateSubtitleMenu()
         updateSkipButtonIcons()
     }
-    
-    // MARK: - Subtitle menu
     
     private func updateSubtitleMenu() {
         let isVisible = subtitleIsVisible
@@ -844,11 +1014,10 @@ public final class PlayerViewController: UIViewController {
     private func updatePlayPauseButton(isPaused: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let cfg = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
+            let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
             let name = isPaused ? "play.fill" : "pause.fill"
             
             self.centerPlayPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
-            self.centerPlayPauseButton.isHidden = false
             
             UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseInOut) {
                 self.centerPlayPauseButton.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
@@ -947,16 +1116,7 @@ public final class PlayerViewController: UIViewController {
 #if !os(tvOS)
             nav.modalPresentationStyle = .pageSheet
 #endif
-            let close: UIBarButtonItem
-#if compiler(>=6.0)
-            if #available(iOS 26.0, tvOS 26.0, *) {
-                close = UIBarButtonItem(title: "Close", style: .prominent, target: self, action: #selector(dismissLogs))
-            } else {
-                close = UIBarButtonItem(title: "Close", style: .done, target: self, action: #selector(dismissLogs))
-            }
-#else
-            close = UIBarButtonItem(title: "Close", style: .done, target: self, action: #selector(dismissLogs))
-#endif
+            let close = UIBarButtonItem(title: "Close", style: .plain, target: self, action: #selector(dismissLogs))
             vc.navigationItem.rightBarButtonItem = close
             present(nav, animated: true)
         }
@@ -1012,9 +1172,18 @@ public final class PlayerViewController: UIViewController {
         progressContainer.alpha = alpha
         closeButton.alpha = alpha
         pipButton.alpha = alpha
+        routePickerTop.alpha = alpha
+        volumeSlider.alpha = alpha
         skipBackwardButton.alpha = alpha
         skipForwardButton.alpha = alpha
+        subtitleLabel.alpha = alpha
+        titleLabel.alpha = alpha
+        titleChevronButton.alpha = alpha
+        routePickerBottom.alpha = alpha
+        moreButton.alpha = alpha
+        
         if !subtitleButton.isHidden { subtitleButton.alpha = alpha }
+        if !skipSegmentButton.isHidden { skipSegmentButton.alpha = alpha }
     }
     
     // MARK: - Close / PiP
