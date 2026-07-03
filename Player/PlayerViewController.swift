@@ -497,6 +497,7 @@ public final class PlayerViewController: UIViewController {
         skipBackwardButton.addTarget(self, action: #selector(skipBackwardTapped), for: .touchUpInside)
         skipForwardButton.addTarget(self, action: #selector(skipForwardTapped), for: .touchUpInside)
         skipSegmentButton.addTarget(self, action: #selector(skipSegmentTapped), for: .touchUpInside)
+        updateSkipButtonIcons()
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(containerTapped))
         videoContainer.addGestureRecognizer(tap)
@@ -582,6 +583,16 @@ public final class PlayerViewController: UIViewController {
         return stored > 0 ? stored : 15.0
     }
     
+    private static let availableSkipSymbolValues: Set<Int> = [5, 10, 15, 30, 45, 60, 75, 90]
+    
+    private func updateSkipButtonIcons() {
+        let interval = Int(skipInterval)
+        let suffix = Self.availableSkipSymbolValues.contains(interval) ? ".\(interval)" : ""
+        let cfg = UIImage.SymbolConfiguration(pointSize: 26, weight: .semibold)
+        skipBackwardButton.setImage(UIImage(systemName: "gobackward\(suffix)", withConfiguration: cfg), for: .normal)
+        skipForwardButton.setImage(UIImage(systemName: "goforward\(suffix)", withConfiguration: cfg), for: .normal)
+    }
+    
     @objc private func skipBackwardTapped() {
         renderer.seek(by: -skipInterval)
         animateButtonTap(skipBackwardButton)
@@ -609,6 +620,7 @@ public final class PlayerViewController: UIViewController {
         renderer.setSubtitleVisible(subtitleIsVisible)
         updateSubtitleButtonAppearance()
         updateSubtitleMenu()
+        updateSkipButtonIcons()
     }
     
     // MARK: - Subtitle menu
