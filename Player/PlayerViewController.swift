@@ -149,18 +149,13 @@ public final class PlayerViewController: UIViewController {
         return r
     }()
     
-    private let volumeSlider: UISlider = {
-        let s = UISlider()
-        s.translatesAutoresizingMaskIntoConstraints = false
-        s.minimumTrackTintColor = .white
-        s.maximumTrackTintColor = UIColor.white.withAlphaComponent(0.2)
-        s.thumbTintColor = .white
-        s.minimumValue = 0
-        s.maximumValue = 1
-        s.value = 1.0
-        s.alpha = 0.0
-        return s
+    private let volumeContainer: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.backgroundColor = .clear
+        return v
     }()
+    private var volumeHostingController: UIHostingController<AnyView>?
     
     private let skipBackwardButton: UIButton = {
         let b = UIButton(type: .system)
@@ -168,7 +163,7 @@ public final class PlayerViewController: UIViewController {
         let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
         b.setImage(UIImage(systemName: "gobackward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
-        b.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
+        b.backgroundColor = .clear
         b.layer.cornerRadius = 22
         b.alpha = 0.0
         return b
@@ -180,7 +175,7 @@ public final class PlayerViewController: UIViewController {
         let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
         b.setImage(UIImage(systemName: "goforward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
-        b.backgroundColor = UIColor(white: 1.0, alpha: 0.15)
+        b.backgroundColor = .clear
         b.layer.cornerRadius = 22
         b.alpha = 0.0
         return b
@@ -271,16 +266,6 @@ public final class PlayerViewController: UIViewController {
         return b
     }()
     
-    private let routePickerBottom: AVRoutePickerView = {
-        let r = AVRoutePickerView()
-        r.translatesAutoresizingMaskIntoConstraints = false
-        r.tintColor = .white
-        r.activeTintColor = .white
-        r.prioritizesVideoDevices = true
-        r.alpha = 0.0
-        return r
-    }()
-    
     private let progressContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -366,13 +351,11 @@ public final class PlayerViewController: UIViewController {
         }
         
         installProgressHostingControllerIfNeeded()
+        installVolumeHostingControllerIfNeeded()
         
         NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
-        
         subscribeToSubtitleSettings()
         
-        volumeSlider.addTarget(self, action: #selector(volumeSliderChanged(_:)), for: .valueChanged)
-        moreButton.addTarget(self, action: #selector(moreButtonTapped), for: .touchUpInside)
         titleChevronButton.addTarget(self, action: #selector(titleChevronTapped), for: .touchUpInside)
     }
     
@@ -387,12 +370,10 @@ public final class PlayerViewController: UIViewController {
     public override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         UserDefaults.standard.bool(forKey: "alwaysLandscape") ? .landscape : .all
     }
-    
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         setNeedsStatusBarAppearanceUpdate()
     }
-    
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
         setNeedsStatusBarAppearanceUpdate()
@@ -406,8 +387,7 @@ public final class PlayerViewController: UIViewController {
         primaryRenderView.frame = videoContainer.bounds
         primaryRenderView.layoutIfNeeded()
         
-        if let grad = controlsOverlayView.layer.sublayers?
-            .first(where: { $0.name == "gradientLayer" }) {
+        if let grad = controlsOverlayView.layer.sublayers?.first(where: { $0.name == "gradientLayer" }) {
             grad.frame = controlsOverlayView.bounds
         }
         CATransaction.commit()
@@ -450,8 +430,6 @@ public final class PlayerViewController: UIViewController {
         self.initialHeaders = headers
         self.initialSubtitles = subtitles
     }
-    
-    // MARK: - Load
     
     func load(url: URL, preset: PlayerPreset, headers: [String: String]? = nil) {
         renderer.load(url: url, with: preset, headers: headers)
@@ -497,14 +475,13 @@ public final class PlayerViewController: UIViewController {
         if progress < 0.95 { pendingSeekTime = lastPlayedTime }
     }
     
-    // MARK: - Layout
-    
     private func setupLayout() {
         view.addSubview(videoContainer)
         videoContainer.addSubview(primaryRenderView)
-        
         view.addSubview(errorBanner)
         videoContainer.addSubview(controlsOverlayView)
+        setupGradientOverlay()
+        
         videoContainer.addSubview(loadingIndicator)
         videoContainer.addSubview(centerPlayPauseButton)
         videoContainer.addSubview(progressContainer)
@@ -513,7 +490,7 @@ public final class PlayerViewController: UIViewController {
         videoContainer.addSubview(pipButton)
         videoContainer.addSubview(routePickerTop)
         
-        videoContainer.addSubview(volumeSlider)
+        videoContainer.addSubview(volumeContainer)
         
         videoContainer.addSubview(skipBackwardButton)
         videoContainer.addSubview(skipForwardButton)
@@ -524,7 +501,6 @@ public final class PlayerViewController: UIViewController {
         videoContainer.addSubview(subtitleLabel)
         videoContainer.addSubview(titleLabel)
         videoContainer.addSubview(titleChevronButton)
-        videoContainer.addSubview(routePickerBottom)
         videoContainer.addSubview(moreButton)
         
         NSLayoutConstraint.activate([
@@ -551,7 +527,7 @@ public final class PlayerViewController: UIViewController {
             progressContainer.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
             progressContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             progressContainer.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
-            progressContainer.heightAnchor.constraint(equalToConstant: 28),
+            progressContainer.heightAnchor.constraint(equalToConstant: 46),
             
             closeButton.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor, constant: 4),
             closeButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
@@ -568,10 +544,10 @@ public final class PlayerViewController: UIViewController {
             routePickerTop.widthAnchor.constraint(equalToConstant: 36),
             routePickerTop.heightAnchor.constraint(equalToConstant: 36),
             
-            volumeSlider.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            volumeSlider.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            volumeSlider.widthAnchor.constraint(equalToConstant: 100),
-            volumeSlider.heightAnchor.constraint(equalToConstant: 24),
+            volumeContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
+            volumeContainer.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            volumeContainer.widthAnchor.constraint(equalToConstant: 80),
+            volumeContainer.heightAnchor.constraint(equalToConstant: 20),
             
             centerPlayPauseButton.centerXAnchor.constraint(equalTo: videoContainer.centerXAnchor),
             centerPlayPauseButton.centerYAnchor.constraint(equalTo: videoContainer.centerYAnchor, constant: -24),
@@ -612,12 +588,7 @@ public final class PlayerViewController: UIViewController {
             moreButton.widthAnchor.constraint(equalToConstant: 32),
             moreButton.heightAnchor.constraint(equalToConstant: 32),
             
-            routePickerBottom.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -12),
-            routePickerBottom.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
-            routePickerBottom.widthAnchor.constraint(equalToConstant: 32),
-            routePickerBottom.heightAnchor.constraint(equalToConstant: 32),
-            
-            subtitleButton.trailingAnchor.constraint(equalTo: routePickerBottom.leadingAnchor, constant: -8),
+            subtitleButton.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -8),
             subtitleButton.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
             subtitleButton.widthAnchor.constraint(equalToConstant: 32),
             subtitleButton.heightAnchor.constraint(equalToConstant: 32),
@@ -650,6 +621,8 @@ public final class PlayerViewController: UIViewController {
         skipSegmentButton.addTarget(self, action: #selector(skipSegmentTapped), for: .touchUpInside)
         updateSkipButtonIcons()
         
+        setupMoreButtonMenu()
+        
         let tap = UITapGestureRecognizer(target: self, action: #selector(containerTapped))
         videoContainer.addGestureRecognizer(tap)
     }
@@ -660,29 +633,136 @@ public final class PlayerViewController: UIViewController {
         if let g = holdGesture { videoContainer.addGestureRecognizer(g) }
     }
     
-    // MARK: - tvOS Focus
-    
-#if os(tvOS)
-    public override func didUpdateFocus(in context: UIFocusUpdateContext, with coordinator: UIFocusAnimationCoordinator) {
-        super.didUpdateFocus(in: context, with: coordinator)
-        guard let next = context.nextFocusedView else { return }
-        coordinator.addCoordinatedAnimations({
-            next.transform = CGAffineTransform(scaleX: 1.05, y: 1.05)
-        }, completion: {})
-        if let prev = context.previouslyFocusedView {
-            coordinator.addCoordinatedAnimations({
-                prev.transform = .identity
-            }, completion: {})
+    private func setupMoreButtonMenu() {
+        let currentSpeed = renderer.getSpeed()
+        let speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+        let actions = speedOptions.map { speed in
+            UIAction(title: "\(speed)x", state: currentSpeed == speed ? .on : .off) { [weak self] _ in
+                self?.renderer.setSpeed(speed)
+            }
         }
+        let menu = UIMenu(title: "Playback Speed", image: UIImage(systemName: "speedometer"), children: actions)
+        moreButton.menu = menu
+        moreButton.showsMenuAsPrimaryAction = true
     }
     
-    public override var preferredFocusEnvironments: [UIFocusEnvironment] {
-        [centerPlayPauseButton, skipBackwardButton, skipForwardButton,
-         closeButton, pipButton, subtitleButton]
+    private func installVolumeHostingControllerIfNeeded() {
+        guard volumeHostingController == nil else { return }
+        
+        struct VolumeHostView: View {
+            var onVolumeChanged: (Float) -> Void
+            @State private var volume: Float = 1.0
+            
+            var body: some View {
+                MusicProgressSlider(
+                    value: Binding(get: { Double(volume) }, set: { volume = Float($0) }),
+                    inRange: 0...1.0,
+                    activeFillColor: .white,
+                    fillColor: .white.opacity(0.3),
+                    textColor: .white.opacity(0.7),
+                    height: 4,
+                    highlights: [],
+                    onEditingChanged: { editing in
+                        if !editing {
+                            onVolumeChanged(volume)
+                        }
+                    }
+                )
+                .frame(width: 80, height: 20)
+            }
+        }
+        
+        let host = UIHostingController(rootView: AnyView(
+            VolumeHostView(onVolumeChanged: { [weak self] volume in
+                self?.renderer.setVolume(volume)
+            })
+        ))
+        volumeHostingController = host
+        addChild(host)
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        host.view.backgroundColor = .clear
+        volumeContainer.addSubview(host.view)
+        NSLayoutConstraint.activate([
+            host.view.topAnchor.constraint(equalTo: volumeContainer.topAnchor),
+            host.view.bottomAnchor.constraint(equalTo: volumeContainer.bottomAnchor),
+            host.view.leadingAnchor.constraint(equalTo: volumeContainer.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: volumeContainer.trailingAnchor),
+        ])
+        host.didMove(toParent: self)
     }
-#endif
     
-    // MARK: - Hold gesture
+    private func installProgressHostingControllerIfNeeded() {
+        guard progressHostingController == nil else { return }
+        
+        struct ProgressHostView: View {
+            @ObservedObject var model: ProgressModel
+            var onEditingChanged: (Bool) -> Void
+            
+            var body: some View {
+                VStack(spacing: 4) {
+                    MusicProgressSlider(
+                        value: Binding(get: { model.position }, set: { model.position = $0 }),
+                        inRange: 0...max(model.duration, 1.0),
+                        activeFillColor: .white,
+                        fillColor: .white,
+                        textColor: .white.opacity(0.7),
+                        height: 4,
+                        highlights: model.highlights,
+                        onEditingChanged: onEditingChanged
+                    )
+                    HStack {
+                        Text(timeString(from: model.position))
+                        Spacer()
+                        Text("-" + timeString(from: max(model.duration, 1) - model.position))
+                    }
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.7))
+                    .monospacedDigit()
+                }
+            }
+            
+            private func timeString(from value: Double) -> String {
+                let seconds = Double(value)
+                guard seconds.isFinite, seconds > 0 else { return "00:00" }
+                let total = Int(round(seconds))
+                let s = total % 60
+                let m = (total / 60) % 60
+                let h = total / 3600
+                if h > 0 {
+                    return String(format: "%d:%02d:%02d", h, m, s)
+                } else {
+                    return String(format: "%02d:%02d", m, s)
+                }
+            }
+        }
+        
+        let host = UIHostingController(rootView: AnyView(
+            ProgressHostView(model: progressModel) { [weak self] editing in
+                guard let self else { return }
+                self.isSeeking = editing
+                if editing {
+                    self.controlsHideWorkItem?.cancel()
+                    self.showControlsIfNeeded()
+                } else {
+                    self.renderer.seek(to: max(0, self.progressModel.position))
+                    self.showControlsTemporarily()
+                }
+            }
+        ))
+        progressHostingController = host
+        addChild(host)
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        host.view.backgroundColor = .clear
+        host.view.isOpaque = false
+        progressContainer.addSubview(host.view)
+        NSLayoutConstraint.activate([
+            host.view.topAnchor.constraint(equalTo: progressContainer.topAnchor),
+            host.view.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
+            host.view.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+        ])
+        host.didMove(toParent: self)
+    }
     
     @objc private func handleHoldGesture(_ gesture: UILongPressGestureRecognizer) {
         switch gesture.state {
@@ -761,27 +841,211 @@ public final class PlayerViewController: UIViewController {
         showControlsTemporarily()
     }
     
-    // MARK: - Volume & More actions
-    
-    @objc private func volumeSliderChanged(_ sender: UISlider) {
-        renderer.setVolume(sender.value)
-    }
-    
-    @objc private func moreButtonTapped() {
-        let actionSheet = UIAlertController(title: "Options", message: nil, preferredStyle: .actionSheet)
-        let speedOptions = [1.0, 1.25, 1.5, 2.0]
-        for speed in speedOptions {
-            actionSheet.addAction(UIAlertAction(title: "Speed \(speed)x", style: .default) { [weak self] _ in
-                self?.renderer.setSpeed(speed)
-            })
-        }
-        actionSheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-        present(actionSheet, animated: true)
-    }
-    
     @objc private func titleChevronTapped() { }
     
-    // MARK: - Subtitle menu
+    private func animateButtonTap(_ button: UIButton) {
+        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseOut) {
+            button.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
+        } completion: { _ in
+            UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseIn) {
+                button.transform = .identity
+            }
+        }
+    }
+    
+    private func updatePlayPauseButton(isPaused: Bool) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
+            let name = isPaused ? "play.fill" : "pause.fill"
+            
+            self.centerPlayPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
+            
+            if !self.centerPlayPauseButton.isHidden {
+                UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseInOut) {
+                    self.centerPlayPauseButton.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
+                } completion: { _ in
+                    UIView.animate(withDuration: 0.15) {
+                        self.centerPlayPauseButton.transform = .identity
+                    }
+                }
+            }
+            self.showControlsTemporarily()
+        }
+    }
+    
+    @objc private func containerTapped() {
+        controlsVisible ? hideControls() : showControlsTemporarily()
+    }
+    
+    private func showControlsIfNeeded() {
+        guard !controlsVisible else { return }
+        controlsVisible = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
+                self.setControlsAlpha(1.0)
+            }
+        }
+    }
+    
+    private func showControlsTemporarily() {
+        controlsHideWorkItem?.cancel()
+        controlsVisible = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
+                self.setControlsAlpha(1.0)
+            }
+        }
+        let work = DispatchWorkItem { [weak self] in self?.hideControls() }
+        controlsHideWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: work)
+    }
+    
+    private func hideControls() {
+        controlsHideWorkItem?.cancel()
+        controlsVisible = false
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
+                self.setControlsAlpha(0.0)
+            }
+        }
+    }
+    
+    private func setControlsAlpha(_ alpha: CGFloat) {
+        centerPlayPauseButton.alpha = alpha
+        controlsOverlayView.alpha = alpha
+        progressContainer.alpha = alpha
+        closeButton.alpha = alpha
+        pipButton.alpha = alpha
+        routePickerTop.alpha = alpha
+        volumeContainer.alpha = alpha
+        skipBackwardButton.alpha = alpha
+        skipForwardButton.alpha = alpha
+        subtitleLabel.alpha = alpha
+        titleLabel.alpha = alpha
+        titleChevronButton.alpha = alpha
+        moreButton.alpha = alpha
+        
+        if !subtitleButton.isHidden { subtitleButton.alpha = alpha }
+        if !skipSegmentButton.isHidden { skipSegmentButton.alpha = alpha }
+    }
+    
+    @objc private func closeTapped() {
+        pipController?.delegate = nil
+        if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
+        renderer.stop()
+        if presentingViewController != nil {
+            dismiss(animated: true)
+        } else {
+            view.window?.rootViewController?.dismiss(animated: true)
+        }
+    }
+    
+    @objc private func pipTapped() {
+        guard let pip = pipController else { return }
+        if pip.isPictureInPictureActive {
+            pip.stopPictureInPicture()
+        } else {
+            pip.startPictureInPicture()
+        }
+    }
+    
+    @objc private func skipSegmentTapped() {
+        guard let segment = currentActiveSegment(at: cachedPosition) else { return }
+        guard let target = resolvedEnd(for: segment, duration: cachedDuration) else { return }
+        renderer.seek(to: max(0, target))
+        showControlsTemporarily()
+    }
+    
+    private func updatePosition(_ position: Double, duration: Double) {
+        self.cachedDuration = duration
+        self.cachedPosition = position
+        
+        let now = CACurrentMediaTime()
+        guard now - lastUIUpdateTime > 0.1 else { return }
+        lastUIUpdateTime = now
+        
+        if duration > 0 {
+            self.installProgressHostingControllerIfNeeded()
+            self.updateProgressHighlights(duration: duration)
+        }
+        self.progressModel.position = position
+        self.progressModel.duration = max(duration, 1.0)
+        self.updateActiveSkipSegment(at: position, duration: duration)
+        
+        if self.pipController?.isPictureInPictureActive == true {
+            self.pipController?.invalidatePlaybackState()
+        }
+        
+        guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
+        
+        switch info {
+        case .movie(let id, let title):
+            ProgressManager.shared.updateMovieProgress(movieId: id, title: title, currentTime: position, totalDuration: duration)
+        case .episode(let showId, let showTitle, let season, let episode):
+            ProgressManager.shared.updateEpisodeProgress(showId: showId, showTitle: showTitle, seasonNumber: season, episodeNumber: episode, currentTime: position, totalDuration: duration)
+        }
+    }
+    
+    private func fetchIntroDBSegments(for info: MediaInfo) {
+        IntroDBService.shared.fetchSegments(for: info) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success(let segments):
+                DispatchQueue.main.async {
+                    self.introDBSegments = segments
+                    self.updateProgressHighlights(duration: self.cachedDuration)
+                    self.updateActiveSkipSegment(at: self.cachedPosition, duration: self.cachedDuration)
+                }
+                Logger.shared.log("Loaded \(segments.count) IntroDB segments", type: "Info")
+            case .failure(let error):
+                Logger.shared.log("IntroDB request failed: \(error.localizedDescription)", type: "Warn")
+            }
+        }
+    }
+    
+    private func updateProgressHighlights(duration: Double) {
+        let highlights = IntroDBService.shared.highlights(for: introDBSegments, duration: duration)
+        progressModel.highlights = highlights.map {
+            ProgressHighlight(start: $0.start, end: $0.end, color: Color($0.color), label: $0.label)
+        }
+    }
+    
+    private func currentActiveSegment(at position: Double, duration: Double? = nil) -> IntroDBSegment? {
+        IntroDBService.shared.activeSegment(at: position, in: introDBSegments, duration: duration ?? cachedDuration)
+    }
+    
+    private func updateActiveSkipSegment(at position: Double, duration: Double) {
+        let active = currentActiveSegment(at: position, duration: duration)
+        let newID = active?.id
+        guard newID != activeSkipSegmentID else { return }
+        activeSkipSegmentID = newID
+        if let active { showSkipButton(for: active) } else { hideSkipButton() }
+    }
+    
+    private func showSkipButton(for segment: IntroDBSegment) {
+        skipSegmentButton.setTitle("Skip \(segment.db.title)", for: .normal)
+        skipSegmentButton.backgroundColor = segment.db.uiColor.withAlphaComponent(0.55)
+        guard skipSegmentButton.isHidden || skipSegmentButton.alpha < 1 else { return }
+        skipSegmentButton.isHidden = false
+        UIView.animate(withDuration: 0.2) { self.skipSegmentButton.alpha = 1.0 }
+    }
+    
+    private func hideSkipButton() {
+        guard !skipSegmentButton.isHidden else { return }
+        UIView.animate(withDuration: 0.2, animations: {
+            self.skipSegmentButton.alpha = 0.0
+        }, completion: { _ in
+            self.skipSegmentButton.isHidden = true
+        })
+    }
+    
+    private func resolvedEnd(for segment: IntroDBSegment, duration: Double) -> Double? {
+        segment.resolvedEnd(duration: duration)
+    }
     
     private func subscribeToSubtitleSettings() {
         NotificationCenter.default.addObserver(self, selector: #selector(userDefaultsDidChange), name: UserDefaults.didChangeNotification, object: nil)
@@ -949,89 +1213,6 @@ public final class PlayerViewController: UIViewController {
         )
     }
     
-    // MARK: - Button animation
-    
-    private func animateButtonTap(_ button: UIButton) {
-        UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseOut) {
-            button.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
-        } completion: { _ in
-            UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseIn) {
-                button.transform = .identity
-            }
-        }
-    }
-    
-    // MARK: - Progress slider
-    
-    private func installProgressHostingControllerIfNeeded() {
-        guard progressHostingController == nil else { return }
-        
-        struct ProgressHostView: View {
-            @ObservedObject var model: ProgressModel
-            var onEditingChanged: (Bool) -> Void
-            var body: some View {
-                MusicProgressSlider(
-                    value: Binding(get: { model.position }, set: { model.position = $0 }),
-                    inRange: 0...max(model.duration, 1.0),
-                    activeFillColor: .white, fillColor: .white,
-                    textColor: .white.opacity(0.7),
-                    height: 4, highlights: model.highlights,
-                    onEditingChanged: onEditingChanged
-                )
-            }
-        }
-        
-        let host = UIHostingController(rootView: AnyView(
-            ProgressHostView(model: progressModel) { [weak self] editing in
-                guard let self else { return }
-                self.isSeeking = editing
-                if editing {
-                    self.controlsHideWorkItem?.cancel()
-                    self.showControlsIfNeeded()
-                } else {
-                    self.renderer.seek(to: max(0, self.progressModel.position))
-                    self.showControlsTemporarily()
-                }
-            }
-        ))
-        progressHostingController = host
-        addChild(host)
-        host.view.translatesAutoresizingMaskIntoConstraints = false
-        host.view.backgroundColor = .clear
-        host.view.isOpaque = false
-        progressContainer.addSubview(host.view)
-        NSLayoutConstraint.activate([
-            host.view.topAnchor.constraint(equalTo: progressContainer.topAnchor),
-            host.view.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
-            host.view.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
-            host.view.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
-        ])
-        host.didMove(toParent: self)
-    }
-    
-    // MARK: - Play/pause button
-    
-    private func updatePlayPauseButton(isPaused: Bool) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
-            let name = isPaused ? "play.fill" : "pause.fill"
-            
-            self.centerPlayPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
-            
-            UIView.animate(withDuration: 0.2, delay: 0, options: .curveEaseInOut) {
-                self.centerPlayPauseButton.transform = CGAffineTransform(scaleX: 1.1, y: 1.1)
-            } completion: { _ in
-                UIView.animate(withDuration: 0.15) {
-                    self.centerPlayPauseButton.transform = .identity
-                }
-            }
-            self.showControlsTemporarily()
-        }
-    }
-    
-    // MARK: - Error display
-    
     private func presentStartupErrorAlert(message: String) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
@@ -1123,201 +1304,6 @@ public final class PlayerViewController: UIViewController {
     }
     
     @objc private func dismissLogs() { dismiss(animated: true) }
-    
-    // MARK: - Controls visibility
-    
-    @objc private func containerTapped() {
-        controlsVisible ? hideControls() : showControlsTemporarily()
-    }
-    
-    private func showControlsIfNeeded() {
-        guard !controlsVisible else { return }
-        controlsVisible = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
-                self.setControlsAlpha(1.0)
-            }
-        }
-    }
-    
-    private func showControlsTemporarily() {
-        controlsHideWorkItem?.cancel()
-        controlsVisible = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseOut) {
-                self.setControlsAlpha(1.0)
-            }
-        }
-        let work = DispatchWorkItem { [weak self] in self?.hideControls() }
-        controlsHideWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.0, execute: work)
-    }
-    
-    private func hideControls() {
-        controlsHideWorkItem?.cancel()
-        controlsVisible = false
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            UIView.animate(withDuration: 0.25, delay: 0, options: .curveEaseIn) {
-                self.setControlsAlpha(0.0)
-            }
-        }
-    }
-    
-    private func setControlsAlpha(_ alpha: CGFloat) {
-        centerPlayPauseButton.alpha = alpha
-        controlsOverlayView.alpha = alpha
-        progressContainer.alpha = alpha
-        closeButton.alpha = alpha
-        pipButton.alpha = alpha
-        routePickerTop.alpha = alpha
-        volumeSlider.alpha = alpha
-        skipBackwardButton.alpha = alpha
-        skipForwardButton.alpha = alpha
-        subtitleLabel.alpha = alpha
-        titleLabel.alpha = alpha
-        titleChevronButton.alpha = alpha
-        routePickerBottom.alpha = alpha
-        moreButton.alpha = alpha
-        
-        if !subtitleButton.isHidden { subtitleButton.alpha = alpha }
-        if !skipSegmentButton.isHidden { skipSegmentButton.alpha = alpha }
-    }
-    
-    // MARK: - Close / PiP
-    
-    @objc private func closeTapped() {
-        pipController?.delegate = nil
-        if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
-        renderer.stop()
-        if presentingViewController != nil {
-            dismiss(animated: true)
-        } else {
-            view.window?.rootViewController?.dismiss(animated: true)
-        }
-    }
-    
-    @objc private func pipTapped() {
-        guard let pip = pipController else { return }
-        if pip.isPictureInPictureActive {
-            pip.stopPictureInPicture()
-        } else {
-            pip.startPictureInPicture()
-        }
-    }
-    
-    // MARK: - Skip segment
-    
-    @objc private func skipSegmentTapped() {
-        guard let segment = currentActiveSegment(at: cachedPosition) else { return }
-        guard let target = resolvedEnd(for: segment, duration: cachedDuration) else { return }
-        renderer.seek(to: max(0, target))
-        showControlsTemporarily()
-    }
-    
-    // MARK: - Position update
-    
-    private func updatePosition(_ position: Double, duration: Double) {
-        self.cachedDuration = duration
-        self.cachedPosition = position
-        
-        let now = CACurrentMediaTime()
-        guard now - lastUIUpdateTime > 0.1 else { return }
-        lastUIUpdateTime = now
-        
-        if duration > 0 {
-            self.installProgressHostingControllerIfNeeded()
-            self.updateProgressHighlights(duration: duration)
-        }
-        self.progressModel.position = position
-        self.progressModel.duration = max(duration, 1.0)
-        self.updateActiveSkipSegment(at: position, duration: duration)
-        
-        if self.pipController?.isPictureInPictureActive == true {
-            self.pipController?.invalidatePlaybackState()
-        }
-        
-        guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
-        
-        switch info {
-        case .movie(let id, let title):
-            ProgressManager.shared.updateMovieProgress(movieId: id, title: title, currentTime: position, totalDuration: duration)
-        case .episode(let showId, let showTitle, let season, let episode):
-            ProgressManager.shared.updateEpisodeProgress(showId: showId, showTitle: showTitle, seasonNumber: season, episodeNumber: episode, currentTime: position, totalDuration: duration)
-        }
-    }
-    
-    private func formatTime(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds > 0 else { return "00:00" }
-        let total = Int(round(seconds))
-        let s = total % 60
-        let m = (total / 60) % 60
-        let h = total / 3600
-        return h > 0
-        ? String(format: "%d:%02d:%02d", h, m, s)
-        : String(format: "%02d:%02d", m, s)
-    }
-    
-    // MARK: - IntroDB
-    
-    private func fetchIntroDBSegments(for info: MediaInfo) {
-        IntroDBService.shared.fetchSegments(for: info) { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .success(let segments):
-                DispatchQueue.main.async {
-                    self.introDBSegments = segments
-                    self.updateProgressHighlights(duration: self.cachedDuration)
-                    self.updateActiveSkipSegment(at: self.cachedPosition, duration: self.cachedDuration)
-                }
-                Logger.shared.log("Loaded \(segments.count) IntroDB segments", type: "Info")
-            case .failure(let error):
-                Logger.shared.log("IntroDB request failed: \(error.localizedDescription)", type: "Warn")
-            }
-        }
-    }
-    
-    private func updateProgressHighlights(duration: Double) {
-        let highlights = IntroDBService.shared.highlights(for: introDBSegments, duration: duration)
-        progressModel.highlights = highlights.map {
-            ProgressHighlight(start: $0.start, end: $0.end, color: Color($0.color), label: $0.label)
-        }
-    }
-    
-    private func currentActiveSegment(at position: Double, duration: Double? = nil) -> IntroDBSegment? {
-        IntroDBService.shared.activeSegment(at: position, in: introDBSegments, duration: duration ?? cachedDuration)
-    }
-    
-    private func updateActiveSkipSegment(at position: Double, duration: Double) {
-        let active = currentActiveSegment(at: position, duration: duration)
-        let newID = active?.id
-        guard newID != activeSkipSegmentID else { return }
-        activeSkipSegmentID = newID
-        if let active { showSkipButton(for: active) } else { hideSkipButton() }
-    }
-    
-    private func showSkipButton(for segment: IntroDBSegment) {
-        skipSegmentButton.setTitle("Skip \(segment.db.title)", for: .normal)
-        skipSegmentButton.backgroundColor = segment.db.uiColor.withAlphaComponent(0.55)
-        guard skipSegmentButton.isHidden || skipSegmentButton.alpha < 1 else { return }
-        skipSegmentButton.isHidden = false
-        UIView.animate(withDuration: 0.2) { self.skipSegmentButton.alpha = 1.0 }
-    }
-    
-    private func hideSkipButton() {
-        guard !skipSegmentButton.isHidden else { return }
-        UIView.animate(withDuration: 0.2, animations: {
-            self.skipSegmentButton.alpha = 0.0
-        }, completion: { _ in
-            self.skipSegmentButton.isHidden = true
-        })
-    }
-    
-    private func resolvedEnd(for segment: IntroDBSegment, duration: Double) -> Double? {
-        segment.resolvedEnd(duration: duration)
-    }
 }
 
 // MARK: - MPVRendererDelegate
@@ -1339,6 +1325,7 @@ extension PlayerViewController: MPVRendererDelegate {
             } else {
                 self.loadingIndicator.stopAnimating()
                 self.loadingIndicator.alpha = 0.0
+                self.centerPlayPauseButton.isHidden = false
                 self.updatePlayPauseButton(isPaused: self.renderer.isPausedState)
             }
         }
@@ -1348,6 +1335,9 @@ extension PlayerViewController: MPVRendererDelegate {
             guard let self else { return }
             self.renderer.applySubtitleStyle(self.currentSubtitleStyle())
             self.renderer.setSubtitleVisible(self.subtitleIsVisible)
+            
+            self.updatePlayPauseButton(isPaused: self.renderer.isPausedState)
+            
             if let t = self.pendingSeekTime {
                 self.renderer.seek(to: t)
                 Logger.shared.log("Resumed from \(Int(t))s", type: "Progress")
@@ -1357,6 +1347,7 @@ extension PlayerViewController: MPVRendererDelegate {
                 self.pendingSubtitleURLs = nil
                 self.loadSubtitles(subs)
             }
+            self.setupMoreButtonMenu()
         }
     }
     func renderer(_ renderer: MPVRenderer, didActivateSubtitleTrack trackID: Int) {
