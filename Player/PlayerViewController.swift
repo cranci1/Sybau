@@ -541,7 +541,7 @@ public final class PlayerViewController: UIViewController {
             speedIndicatorLabel.heightAnchor.constraint(equalToConstant: 40),
             
             titleLabel.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
-            titleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor),
+            titleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -14),
             
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.bottomAnchor.constraint(equalTo: titleLabel.topAnchor, constant: -2),
@@ -790,7 +790,7 @@ public final class PlayerViewController: UIViewController {
     private func updateSkipButtonIcons() {
         let interval = Int(skipInterval)
         let suffix = Self.availableSkipSymbolValues.contains(interval) ? ".\(interval)" : ""
-        let cfg = UIImage.SymbolConfiguration(pointSize: 36, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 32, weight: .semibold)
         skipBackwardButton.setImage(UIImage(systemName: "gobackward\(suffix)", withConfiguration: cfg), for: .normal)
         skipForwardButton.setImage(UIImage(systemName: "goforward\(suffix)", withConfiguration: cfg), for: .normal)
     }
@@ -826,7 +826,7 @@ public final class PlayerViewController: UIViewController {
     private func updatePlayPauseButton(isPaused: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let cfg = UIImage.SymbolConfiguration(pointSize: 44, weight: .bold)
+            let cfg = UIImage.SymbolConfiguration(pointSize: 40, weight: .bold)
             let name = isPaused ? "play.fill" : "pause.fill"
             
             self.centerPlayPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
