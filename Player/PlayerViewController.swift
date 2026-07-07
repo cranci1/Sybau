@@ -34,7 +34,7 @@ public final class PlayerViewController: UIViewController {
     private let centerPlayPauseButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 36, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 50, weight: .semibold)
         b.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.backgroundColor = .clear
@@ -157,7 +157,7 @@ public final class PlayerViewController: UIViewController {
     private let skipBackwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 44, weight: .semibold)
         b.setImage(UIImage(systemName: "gobackward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.backgroundColor = .clear
@@ -169,7 +169,7 @@ public final class PlayerViewController: UIViewController {
     private let skipForwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 44, weight: .semibold)
         b.setImage(UIImage(systemName: "goforward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.backgroundColor = .clear
@@ -536,13 +536,18 @@ public final class PlayerViewController: UIViewController {
             pipButton.widthAnchor.constraint(equalToConstant: 36),
             pipButton.heightAnchor.constraint(equalToConstant: 36),
             
+            routePickerTop.leadingAnchor.constraint(equalTo: pipButton.trailingAnchor, constant: 12),
+            routePickerTop.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            routePickerTop.widthAnchor.constraint(equalToConstant: 36),
+            routePickerTop.heightAnchor.constraint(equalToConstant: 36),
+            
             volumeContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             volumeContainer.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             volumeContainer.widthAnchor.constraint(equalToConstant: 130),
             volumeContainer.heightAnchor.constraint(equalToConstant: 20),
             
             centerPlayPauseButton.centerXAnchor.constraint(equalTo: videoContainer.centerXAnchor),
-            centerPlayPauseButton.centerYAnchor.constraint(equalTo: videoContainer.centerYAnchor, constant: -24),
+            centerPlayPauseButton.centerYAnchor.constraint(equalTo: videoContainer.centerYAnchor),
             centerPlayPauseButton.widthAnchor.constraint(equalToConstant: 56),
             centerPlayPauseButton.heightAnchor.constraint(equalToConstant: 56),
             
@@ -580,12 +585,7 @@ public final class PlayerViewController: UIViewController {
             moreButton.widthAnchor.constraint(equalToConstant: 32),
             moreButton.heightAnchor.constraint(equalToConstant: 32),
             
-            routePickerTop.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -4),
-            routePickerTop.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
-            routePickerTop.widthAnchor.constraint(equalToConstant: 32),
-            routePickerTop.heightAnchor.constraint(equalToConstant: 32),
-            
-            subtitleButton.trailingAnchor.constraint(equalTo: routePickerTop.leadingAnchor, constant: -8),
+            subtitleButton.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -8),
             subtitleButton.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
             subtitleButton.widthAnchor.constraint(equalToConstant: 32),
             subtitleButton.heightAnchor.constraint(equalToConstant: 32),
@@ -656,9 +656,9 @@ public final class PlayerViewController: UIViewController {
                         value: Binding(get: { Double(volume) }, set: { volume = Float($0) }),
                         inRange: 0...1.0,
                         activeFillColor: .white,
-                        fillColor: .white.opacity(0.3),
+                        fillColor: .white,
                         textColor: .clear,
-                        height: 3,
+                        height: 8,
                         highlights: [],
                         showsTimeLabels: false,
                         onEditingChanged: { editing in
@@ -711,7 +711,7 @@ public final class PlayerViewController: UIViewController {
                         activeFillColor: .white,
                         fillColor: .white,
                         textColor: .clear,
-                        height: 5,
+                        height: 13,
                         highlights: model.highlights,
                         showsTimeLabels: false,
                         onEditingChanged: onEditingChanged
