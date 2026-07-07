@@ -34,7 +34,7 @@ public final class PlayerViewController: UIViewController {
     private let centerPlayPauseButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 50, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 44, weight: .semibold)
         b.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.backgroundColor = .clear
@@ -136,16 +136,6 @@ public final class PlayerViewController: UIViewController {
         return b
     }()
     
-    private let routePickerTop: AVRoutePickerView = {
-        let r = AVRoutePickerView()
-        r.translatesAutoresizingMaskIntoConstraints = false
-        r.tintColor = .white
-        r.activeTintColor = .white
-        r.prioritizesVideoDevices = true
-        r.alpha = 0.0
-        return r
-    }()
-    
     private let volumeContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -157,7 +147,7 @@ public final class PlayerViewController: UIViewController {
     private let skipBackwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 44, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 36, weight: .semibold)
         b.setImage(UIImage(systemName: "gobackward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.backgroundColor = .clear
@@ -169,7 +159,7 @@ public final class PlayerViewController: UIViewController {
     private let skipForwardButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 44, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 36, weight: .semibold)
         b.setImage(UIImage(systemName: "goforward.10", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.backgroundColor = .clear
@@ -182,7 +172,7 @@ public final class PlayerViewController: UIViewController {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
         l.textColor = .white
-        l.font = .systemFont(ofSize: 16, weight: .bold)
+        l.font = .systemFont(ofSize: 16, weight: .semibold)
         l.textAlignment = .center
         l.backgroundColor = UIColor(white: 0.2, alpha: 0.8)
         l.layer.cornerRadius = 20
@@ -243,20 +233,10 @@ public final class PlayerViewController: UIViewController {
         return l
     }()
     
-    private let titleChevronButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        b.setImage(UIImage(systemName: "chevron.right", withConfiguration: cfg), for: .normal)
-        b.tintColor = .white
-        b.alpha = 0.0
-        return b
-    }()
-    
     private let moreButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
         b.setImage(UIImage(systemName: "ellipsis.circle", withConfiguration: cfg), for: .normal)
         b.tintColor = .white
         b.alpha = 0.0
@@ -352,8 +332,6 @@ public final class PlayerViewController: UIViewController {
         
         NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         subscribeToSubtitleSettings()
-        
-        titleChevronButton.addTarget(self, action: #selector(titleChevronTapped), for: .touchUpInside)
     }
     
     public override func viewDidAppear(_ animated: Bool) {
@@ -485,7 +463,6 @@ public final class PlayerViewController: UIViewController {
         
         videoContainer.addSubview(closeButton)
         videoContainer.addSubview(pipButton)
-        videoContainer.addSubview(routePickerTop)
         
         videoContainer.addSubview(volumeContainer)
         
@@ -497,7 +474,6 @@ public final class PlayerViewController: UIViewController {
         
         videoContainer.addSubview(subtitleLabel)
         videoContainer.addSubview(titleLabel)
-        videoContainer.addSubview(titleChevronButton)
         videoContainer.addSubview(moreButton)
         
         NSLayoutConstraint.activate([
@@ -536,11 +512,6 @@ public final class PlayerViewController: UIViewController {
             pipButton.widthAnchor.constraint(equalToConstant: 36),
             pipButton.heightAnchor.constraint(equalToConstant: 36),
             
-            routePickerTop.leadingAnchor.constraint(equalTo: pipButton.trailingAnchor, constant: 12),
-            routePickerTop.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            routePickerTop.widthAnchor.constraint(equalToConstant: 36),
-            routePickerTop.heightAnchor.constraint(equalToConstant: 36),
-            
             volumeContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             volumeContainer.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
             volumeContainer.widthAnchor.constraint(equalToConstant: 130),
@@ -570,15 +541,10 @@ public final class PlayerViewController: UIViewController {
             speedIndicatorLabel.heightAnchor.constraint(equalToConstant: 40),
             
             titleLabel.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
-            titleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -14),
+            titleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor),
             
             subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             subtitleLabel.bottomAnchor.constraint(equalTo: titleLabel.topAnchor, constant: -2),
-            
-            titleChevronButton.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 6),
-            titleChevronButton.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
-            titleChevronButton.widthAnchor.constraint(equalToConstant: 24),
-            titleChevronButton.heightAnchor.constraint(equalToConstant: 24),
             
             moreButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             moreButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
@@ -658,7 +624,7 @@ public final class PlayerViewController: UIViewController {
                         activeFillColor: .white,
                         fillColor: .white,
                         textColor: .clear,
-                        height: 8,
+                        height: 6,
                         highlights: [],
                         showsTimeLabels: false,
                         onEditingChanged: { editing in
@@ -711,7 +677,7 @@ public final class PlayerViewController: UIViewController {
                         activeFillColor: .white,
                         fillColor: .white,
                         textColor: .clear,
-                        height: 13,
+                        height: 9,
                         highlights: model.highlights,
                         showsTimeLabels: false,
                         onEditingChanged: onEditingChanged
@@ -824,7 +790,7 @@ public final class PlayerViewController: UIViewController {
     private func updateSkipButtonIcons() {
         let interval = Int(skipInterval)
         let suffix = Self.availableSkipSymbolValues.contains(interval) ? ".\(interval)" : ""
-        let cfg = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 36, weight: .semibold)
         skipBackwardButton.setImage(UIImage(systemName: "gobackward\(suffix)", withConfiguration: cfg), for: .normal)
         skipForwardButton.setImage(UIImage(systemName: "goforward\(suffix)", withConfiguration: cfg), for: .normal)
     }
@@ -847,8 +813,6 @@ public final class PlayerViewController: UIViewController {
         showControlsTemporarily()
     }
     
-    @objc private func titleChevronTapped() { }
-    
     private func animateButtonTap(_ button: UIButton) {
         UIView.animate(withDuration: 0.1, delay: 0, options: .curveEaseOut) {
             button.transform = CGAffineTransform(scaleX: 1.2, y: 1.2)
@@ -862,7 +826,7 @@ public final class PlayerViewController: UIViewController {
     private func updatePlayPauseButton(isPaused: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
+            let cfg = UIImage.SymbolConfiguration(pointSize: 44, weight: .bold)
             let name = isPaused ? "play.fill" : "pause.fill"
             
             self.centerPlayPauseButton.setImage(UIImage(systemName: name, withConfiguration: cfg), for: .normal)
@@ -926,13 +890,11 @@ public final class PlayerViewController: UIViewController {
         progressContainer.alpha = alpha
         closeButton.alpha = alpha
         pipButton.alpha = alpha
-        routePickerTop.alpha = alpha
         volumeContainer.alpha = alpha
         skipBackwardButton.alpha = alpha
         skipForwardButton.alpha = alpha
         subtitleLabel.alpha = alpha
         titleLabel.alpha = alpha
-        titleChevronButton.alpha = alpha
         moreButton.alpha = alpha
         
         if !subtitleButton.isHidden { subtitleButton.alpha = alpha }
