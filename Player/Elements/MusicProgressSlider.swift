@@ -25,6 +25,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
     let textColor: Color
     let height: CGFloat
     let highlights: [ProgressHighlight]
+    let showsTimeLabels: Bool
     let onEditingChanged: (Bool) -> Void
     
     @State private var localRealProgress: T = 0
@@ -40,6 +41,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
         textColor: Color,
         height: CGFloat,
         highlights: [ProgressHighlight] = [],
+        showsTimeLabels: Bool = true,
         onEditingChanged: @escaping (Bool) -> Void
     ) {
         self._value = value
@@ -49,6 +51,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
         self.textColor = textColor
         self.height = height
         self.highlights = highlights
+        self.showsTimeLabels = showsTimeLabels
         self.onEditingChanged = onEditingChanged
     }
     
@@ -57,12 +60,14 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
             ZStack {
                 Color.clear
                     .allowsHitTesting(false)
-                HStack(spacing: 8) {
-                    Text(timeString(from: progressDuration))
-                        .font(.system(size: 12.5))
-                        .foregroundColor(textColor)
-                        .monospacedDigit()
-                        .fixedSize()
+                HStack(spacing: showsTimeLabels ? 8 : 0) {
+                    if showsTimeLabels {
+                        Text(timeString(from: progressDuration))
+                            .font(.system(size: 12.5))
+                            .foregroundColor(textColor)
+                            .monospacedDigit()
+                            .fixedSize()
+                    }
                     
                     ZStack(alignment: .center) {
                         ZStack(alignment: .center) {
@@ -103,11 +108,13 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                             }
                     }
                     
-                    Text("-" + timeString(from: (inRange.upperBound - progressDuration)))
-                        .font(.system(size: 12.5))
-                        .foregroundColor(textColor)
-                        .monospacedDigit()
-                        .fixedSize()
+                    if showsTimeLabels {
+                        Text("-" + timeString(from: (inRange.upperBound - progressDuration)))
+                            .font(.system(size: 12.5))
+                            .foregroundColor(textColor)
+                            .monospacedDigit()
+                            .fixedSize()
+                    }
                 }
                 .frame(width: isActive ? bounds.size.width * 1.04 : bounds.size.width, alignment: .center)
                 .animation(animation, value: isActive)

@@ -34,13 +34,10 @@ public final class PlayerViewController: UIViewController {
     private let centerPlayPauseButton: UIButton = {
         let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        let cfg = UIImage.SymbolConfiguration(pointSize: 28, weight: .bold)
+        let cfg = UIImage.SymbolConfiguration(pointSize: 36, weight: .semibold)
         b.setImage(UIImage(systemName: "play.fill", withConfiguration: cfg), for: .normal)
-        b.tintColor = .black
-        b.backgroundColor = .white
-        b.layer.cornerRadius = 28
-        b.layer.cornerCurve = .continuous
-        b.clipsToBounds = true
+        b.tintColor = .white
+        b.backgroundColor = .clear
         return b
     }()
     
@@ -539,14 +536,9 @@ public final class PlayerViewController: UIViewController {
             pipButton.widthAnchor.constraint(equalToConstant: 36),
             pipButton.heightAnchor.constraint(equalToConstant: 36),
             
-            routePickerTop.leadingAnchor.constraint(equalTo: pipButton.trailingAnchor, constant: 12),
-            routePickerTop.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            routePickerTop.widthAnchor.constraint(equalToConstant: 36),
-            routePickerTop.heightAnchor.constraint(equalToConstant: 36),
-            
             volumeContainer.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
             volumeContainer.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
-            volumeContainer.widthAnchor.constraint(equalToConstant: 80),
+            volumeContainer.widthAnchor.constraint(equalToConstant: 130),
             volumeContainer.heightAnchor.constraint(equalToConstant: 20),
             
             centerPlayPauseButton.centerXAnchor.constraint(equalTo: videoContainer.centerXAnchor),
@@ -572,23 +564,28 @@ public final class PlayerViewController: UIViewController {
             speedIndicatorLabel.widthAnchor.constraint(equalToConstant: 100),
             speedIndicatorLabel.heightAnchor.constraint(equalToConstant: 40),
             
-            subtitleLabel.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
-            subtitleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -20),
+            titleLabel.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+            titleLabel.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -14),
             
-            titleLabel.leadingAnchor.constraint(equalTo: subtitleLabel.leadingAnchor),
-            titleLabel.bottomAnchor.constraint(equalTo: subtitleLabel.topAnchor, constant: -4),
+            subtitleLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            subtitleLabel.bottomAnchor.constraint(equalTo: titleLabel.topAnchor, constant: -2),
             
-            titleChevronButton.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 8),
+            titleChevronButton.leadingAnchor.constraint(equalTo: titleLabel.trailingAnchor, constant: 6),
             titleChevronButton.firstBaselineAnchor.constraint(equalTo: titleLabel.firstBaselineAnchor),
             titleChevronButton.widthAnchor.constraint(equalToConstant: 24),
             titleChevronButton.heightAnchor.constraint(equalToConstant: 24),
             
-            moreButton.bottomAnchor.constraint(equalTo: progressContainer.topAnchor, constant: -20),
+            moreButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
             moreButton.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
             moreButton.widthAnchor.constraint(equalToConstant: 32),
             moreButton.heightAnchor.constraint(equalToConstant: 32),
             
-            subtitleButton.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -8),
+            routePickerTop.trailingAnchor.constraint(equalTo: moreButton.leadingAnchor, constant: -4),
+            routePickerTop.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
+            routePickerTop.widthAnchor.constraint(equalToConstant: 32),
+            routePickerTop.heightAnchor.constraint(equalToConstant: 32),
+            
+            subtitleButton.trailingAnchor.constraint(equalTo: routePickerTop.leadingAnchor, constant: -8),
             subtitleButton.centerYAnchor.constraint(equalTo: moreButton.centerYAnchor),
             subtitleButton.widthAnchor.constraint(equalToConstant: 32),
             subtitleButton.heightAnchor.constraint(equalToConstant: 32),
@@ -654,21 +651,29 @@ public final class PlayerViewController: UIViewController {
             @State private var volume: Float = 1.0
             
             var body: some View {
-                MusicProgressSlider(
-                    value: Binding(get: { Double(volume) }, set: { volume = Float($0) }),
-                    inRange: 0...1.0,
-                    activeFillColor: .white,
-                    fillColor: .white.opacity(0.3),
-                    textColor: .white.opacity(0.7),
-                    height: 4,
-                    highlights: [],
-                    onEditingChanged: { editing in
-                        if !editing {
-                            onVolumeChanged(volume)
+                HStack(spacing: 8) {
+                    MusicProgressSlider(
+                        value: Binding(get: { Double(volume) }, set: { volume = Float($0) }),
+                        inRange: 0...1.0,
+                        activeFillColor: .white,
+                        fillColor: .white.opacity(0.3),
+                        textColor: .clear,
+                        height: 3,
+                        highlights: [],
+                        showsTimeLabels: false,
+                        onEditingChanged: { editing in
+                            if !editing {
+                                onVolumeChanged(volume)
+                            }
                         }
-                    }
-                )
-                .frame(width: 80, height: 20)
+                    )
+                    .frame(width: 96, height: 20)
+                    
+                    Image(systemName: volume <= 0 ? "speaker.slash.fill" : (volume < 0.5 ? "speaker.wave.1.fill" : "speaker.wave.2.fill"))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(width: 18)
+                }
             }
         }
         
@@ -699,15 +704,16 @@ public final class PlayerViewController: UIViewController {
             var onEditingChanged: (Bool) -> Void
             
             var body: some View {
-                VStack(spacing: 4) {
+                VStack(spacing: 6) {
                     MusicProgressSlider(
                         value: Binding(get: { model.position }, set: { model.position = $0 }),
                         inRange: 0...max(model.duration, 1.0),
                         activeFillColor: .white,
                         fillColor: .white,
-                        textColor: .white.opacity(0.7),
-                        height: 4,
+                        textColor: .clear,
+                        height: 5,
                         highlights: model.highlights,
+                        showsTimeLabels: false,
                         onEditingChanged: onEditingChanged
                     )
                     HStack {
