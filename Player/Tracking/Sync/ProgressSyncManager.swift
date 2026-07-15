@@ -39,6 +39,26 @@ private struct ProviderSession: Codable {
     }
 }
 
+private enum PushKind: String, Codable {
+    case movie
+    case episode
+}
+
+private struct PendingPush: Codable {
+    let identifier: String
+    let provider: String
+    let kind: PushKind
+    let movieId: Int?
+    let title: String?
+    let showId: Int?
+    let showTitle: String?
+    let seasonNumber: Int?
+    let episodeNumber: Int?
+    let progress: Double
+    var attempts: Int
+    var nextAttemptAt: Date
+}
+
 @MainActor
 public final class ProgressSyncManager: NSObject, ObservableObject {
     public static let shared = ProgressSyncManager()
@@ -55,6 +75,17 @@ public final class ProgressSyncManager: NSObject, ObservableObject {
     
     private var lastPushedProgress: [String: Double] = [:]
     private var lastPushedDate: [String: Date] = [:]
+    
+    private var pendingCompletionPushes: [PendingPush] = []
+    private var isProcessingPendingPushes = false
+    private var pendingPushRetryTask: Task<Void, Never>?
+    
+    private enum PendingPushConfig {
+        static let storageKey = "sync.pendingCompletionPushes"
+        static let maxAttempts = 6
+        static let baseDelay: TimeInterval = 5
+        static let maxDelay: TimeInterval = 30 * 60
+    }
     
 #if os(iOS)
     private var authSession: ASWebAuthenticationSession?
@@ -89,7 +120,9 @@ public final class ProgressSyncManager: NSObject, ObservableObject {
     
     private override init() {
         super.init()
+        loadPendingCompletionPushes()
         reloadState()
+        Task { await processPendingCompletionPushes() }
     }
     
     public func reloadState() {
@@ -208,6 +241,7 @@ public final class ProgressSyncManager: NSObject, ObservableObject {
         isTraktLoggedIn = true
         await refreshTraktUsername()
         Logger.shared.log("Trakt login successful", type: "Sync")
+        Task { await processPendingCompletionPushes() }
     }
     
     public func loginAniList() async throws {
@@ -250,6 +284,7 @@ public final class ProgressSyncManager: NSObject, ObservableObject {
         isAniListLoggedIn = true
         await refreshAniListUsername()
         Logger.shared.log("AniList login successful", type: "Sync")
+        Task { await processPendingCompletionPushes() }
     }
     
     private func runAuthSession(url: URL) async throws -> URL {
@@ -355,65 +390,229 @@ public final class ProgressSyncManager: NSObject, ObservableObject {
         }
     }
     
+    // movies
     private func pushToProviders(movieId: Int, title: String, progress: Double) async {
         let safeProgress = min(max(progress, 0), 1)
-        guard shouldPush(identifier: "movie_\(movieId)", progress: safeProgress) else { return }
+        let identifier = "movie_\(movieId)"
         
         if traktSyncEnabled {
-            do {
-                try await pushTraktMovieProgress(tmdbId: movieId, progress: safeProgress)
-            } catch {
-                Logger.shared.log("Trakt movie push failed: \(error.localizedDescription)", type: "Sync")
-            }
+            await attemptPush(
+                provider: .trakt, identifier: identifier, progress: safeProgress,
+                pending: PendingPush(
+                    identifier: identifier, provider: SyncProvider.trakt.rawValue, kind: .movie,
+                    movieId: movieId, title: title, showId: nil, showTitle: nil,
+                    seasonNumber: nil, episodeNumber: nil, progress: safeProgress,
+                    attempts: 0, nextAttemptAt: Date()
+                )
+            )
         }
         
         if aniListSyncEnabled {
-            do {
-                try await pushAniListMovieProgress(title: title, progress: safeProgress)
-            } catch {
-                Logger.shared.log("AniList movie push failed: \(error.localizedDescription)", type: "Sync")
-            }
+            await attemptPush(
+                provider: .anilist, identifier: identifier, progress: safeProgress,
+                pending: PendingPush(
+                    identifier: identifier, provider: SyncProvider.anilist.rawValue, kind: .movie,
+                    movieId: movieId, title: title, showId: nil, showTitle: nil,
+                    seasonNumber: nil, episodeNumber: nil, progress: safeProgress,
+                    attempts: 0, nextAttemptAt: Date()
+                )
+            )
         }
     }
     
+    // episodes
     private func pushToProviders(showId: Int, showTitle: String?, seasonNumber: Int, episodeNumber: Int, progress: Double) async {
         let safeProgress = min(max(progress, 0), 1)
         let identifier = "episode_\(showId)_\(seasonNumber)_\(episodeNumber)"
-        guard shouldPush(identifier: identifier, progress: safeProgress) else { return }
         
         if traktSyncEnabled {
-            do {
-                try await pushTraktEpisodeProgress(showId: showId, seasonNumber: seasonNumber, episodeNumber: episodeNumber, progress: safeProgress)
-            } catch {
-                Logger.shared.log("Trakt episode push failed: \(error.localizedDescription)", type: "Sync")
-            }
+            await attemptPush(
+                provider: .trakt, identifier: identifier, progress: safeProgress,
+                pending: PendingPush(
+                    identifier: identifier, provider: SyncProvider.trakt.rawValue, kind: .episode,
+                    movieId: nil, title: nil, showId: showId, showTitle: showTitle,
+                    seasonNumber: seasonNumber, episodeNumber: episodeNumber, progress: safeProgress,
+                    attempts: 0, nextAttemptAt: Date()
+                )
+            )
         }
         
         if aniListSyncEnabled, let showTitle, !showTitle.isEmpty {
-            do {
-                try await pushAniListEpisodeProgress(showTitle: showTitle, episodeNumber: episodeNumber, progress: safeProgress)
-            } catch {
-                Logger.shared.log("AniList episode push failed: \(error.localizedDescription)", type: "Sync")
-            }
+            await attemptPush(
+                provider: .anilist, identifier: identifier, progress: safeProgress,
+                pending: PendingPush(
+                    identifier: identifier, provider: SyncProvider.anilist.rawValue, kind: .episode,
+                    movieId: nil, title: nil, showId: showId, showTitle: showTitle,
+                    seasonNumber: seasonNumber, episodeNumber: episodeNumber, progress: safeProgress,
+                    attempts: 0, nextAttemptAt: Date()
+                )
+            )
         }
     }
     
-    private func shouldPush(identifier: String, progress: Double) -> Bool {
-        let now = Date()
-        let previousProgress = lastPushedProgress[identifier] ?? 0
-        let previousDate = lastPushedDate[identifier] ?? .distantPast
+    private func attemptPush(provider: SyncProvider, identifier: String, progress: Double, pending: PendingPush) async {
+        guard shouldAttemptPush(provider: provider, identifier: identifier, progress: progress) else { return }
+        
+        do {
+            try await performPush(pending)
+            recordSuccessfulPush(provider: provider, identifier: identifier, progress: progress)
+        } catch {
+            Logger.shared.log("\(provider.rawValue) \(pending.kind.rawValue) push failed: \(error.localizedDescription)", type: "Sync")
+            
+            guard progress >= 0.95, isTransientSyncError(error) else { return }
+            enqueuePendingCompletionPush(pending)
+        }
+    }
+    
+    private func performPush(_ pending: PendingPush) async throws {
+        guard let provider = SyncProvider(rawValue: pending.provider) else {
+            throw SyncError.requestFailed("Unknown sync provider: \(pending.provider)")
+        }
+        
+        switch (provider, pending.kind) {
+        case (.trakt, .movie):
+            guard let movieId = pending.movieId else { return }
+            try await pushTraktMovieProgress(tmdbId: movieId, progress: pending.progress)
+        case (.trakt, .episode):
+            guard let showId = pending.showId, let season = pending.seasonNumber, let episode = pending.episodeNumber else { return }
+            try await pushTraktEpisodeProgress(showId: showId, seasonNumber: season, episodeNumber: episode, progress: pending.progress)
+        case (.anilist, .movie):
+            guard let title = pending.title else { return }
+            try await pushAniListMovieProgress(title: title, progress: pending.progress)
+        case (.anilist, .episode):
+            guard let showTitle = pending.showTitle, let episode = pending.episodeNumber else { return }
+            try await pushAniListEpisodeProgress(showTitle: showTitle, episodeNumber: episode, progress: pending.progress)
+        }
+    }
+    
+    private func pushStateKey(provider: SyncProvider, identifier: String) -> String {
+        "\(provider.rawValue)|\(identifier)"
+    }
+    
+    private func shouldAttemptPush(provider: SyncProvider, identifier: String, progress: Double) -> Bool {
+        let key = pushStateKey(provider: provider, identifier: identifier)
+        let previousProgress = lastPushedProgress[key] ?? 0
+        let previousDate = lastPushedDate[key] ?? .distantPast
         
         let madeLargeProgressJump = abs(progress - previousProgress) >= 0.03
         let isCompletionEdge = progress >= 0.95 && previousProgress < 0.95
-        let hasIntervalElapsed = now.timeIntervalSince(previousDate) >= 45
+        let hasIntervalElapsed = Date().timeIntervalSince(previousDate) >= 45
         
-        let shouldPush = isCompletionEdge || (madeLargeProgressJump && hasIntervalElapsed)
-        if shouldPush {
-            lastPushedProgress[identifier] = progress
-            lastPushedDate[identifier] = now
+        return isCompletionEdge || (madeLargeProgressJump && hasIntervalElapsed)
+    }
+    
+    private func recordSuccessfulPush(provider: SyncProvider, identifier: String, progress: Double) {
+        let key = pushStateKey(provider: provider, identifier: identifier)
+        lastPushedProgress[key] = progress
+        lastPushedDate[key] = Date()
+    }
+    
+    private func isTransientSyncError(_ error: Error) -> Bool {
+        guard let syncError = error as? SyncError else {
+            return true
+        }
+        switch syncError {
+        case .requestFailed:
+            return true
+        case .unsupportedPlatform, .missingClientCredentials, .invalidAuthURL, .invalidEndpoint, .authorizationFailed, .notLoggedIn, .tokenExpired:
+            return false
+        }
+    }
+    
+    private func isSyncStillEnabled(for provider: SyncProvider) -> Bool {
+        switch provider {
+        case .trakt: return traktSyncEnabled && isTraktLoggedIn
+        case .anilist: return aniListSyncEnabled && isAniListLoggedIn
+        }
+    }
+    
+    // MARK: - Push retry queue
+    
+    private func enqueuePendingCompletionPush(_ pending: PendingPush) {
+        var entry = pending
+        entry.attempts = 1
+        entry.nextAttemptAt = Date().addingTimeInterval(backoffDelay(forAttempt: entry.attempts))
+        
+        pendingCompletionPushes.removeAll { $0.provider == entry.provider && $0.identifier == entry.identifier }
+        pendingCompletionPushes.append(entry)
+        persistPendingCompletionPushes()
+        schedulePendingPushProcessing()
+    }
+    
+    private func backoffDelay(forAttempt attempt: Int) -> TimeInterval {
+        let exponential = PendingPushConfig.baseDelay * pow(2, Double(max(0, attempt - 1)))
+        let capped = min(exponential, PendingPushConfig.maxDelay)
+        return capped * Double.random(in: 0.85...1.15)
+    }
+    
+    private func schedulePendingPushProcessing() {
+        pendingPushRetryTask?.cancel()
+        pendingPushRetryTask = nil
+        guard let nextDate = pendingCompletionPushes.map(\.nextAttemptAt).min() else { return }
+        
+        let delay = max(0, nextDate.timeIntervalSinceNow)
+        pendingPushRetryTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard let self, !Task.isCancelled else { return }
+            self.pendingPushRetryTask = nil
+            await self.processPendingCompletionPushes()
+        }
+    }
+    
+    private func processPendingCompletionPushes() async {
+        guard !isProcessingPendingPushes else { return }
+        isProcessingPendingPushes = true
+        defer { isProcessingPendingPushes = false }
+        
+        let now = Date()
+        let dueIdentities = pendingCompletionPushes
+            .filter { $0.nextAttemptAt <= now }
+            .map { ($0.provider, $0.identifier) }
+        
+        for (providerRaw, identifier) in dueIdentities {
+            guard var entry = pendingCompletionPushes.first(where: { $0.provider == providerRaw && $0.identifier == identifier }) else { continue }
+            guard let provider = SyncProvider(rawValue: providerRaw) else {
+                pendingCompletionPushes.removeAll { $0.provider == providerRaw && $0.identifier == identifier }
+                continue
+            }
+            
+            guard isSyncStillEnabled(for: provider) else {
+                pendingCompletionPushes.removeAll { $0.provider == providerRaw && $0.identifier == identifier }
+                continue
+            }
+            
+            do {
+                try await performPush(entry)
+                recordSuccessfulPush(provider: provider, identifier: identifier, progress: entry.progress)
+                pendingCompletionPushes.removeAll { $0.provider == providerRaw && $0.identifier == identifier }
+                Logger.shared.log("Retried \(provider.rawValue) completion push for \(identifier) succeeded", type: "Sync")
+            } catch {
+                entry.attempts += 1
+                if entry.attempts > PendingPushConfig.maxAttempts || !isTransientSyncError(error) {
+                    Logger.shared.log("Giving up on \(provider.rawValue) completion push for \(identifier) after \(entry.attempts) attempts: \(error.localizedDescription)", type: "Sync")
+                    pendingCompletionPushes.removeAll { $0.provider == providerRaw && $0.identifier == identifier }
+                } else {
+                    entry.nextAttemptAt = Date().addingTimeInterval(backoffDelay(forAttempt: entry.attempts))
+                    if let idx = pendingCompletionPushes.firstIndex(where: { $0.provider == providerRaw && $0.identifier == identifier }) {
+                        pendingCompletionPushes[idx] = entry
+                    }
+                    Logger.shared.log("Retry \(entry.attempts)/\(PendingPushConfig.maxAttempts) for \(provider.rawValue) completion push \(identifier) failed: \(error.localizedDescription)", type: "Sync")
+                }
+            }
         }
         
-        return shouldPush
+        persistPendingCompletionPushes()
+        schedulePendingPushProcessing()
+    }
+    
+    private func loadPendingCompletionPushes() {
+        guard let data = userDefaults.data(forKey: PendingPushConfig.storageKey) else { return }
+        pendingCompletionPushes = (try? JSONDecoder().decode([PendingPush].self, from: data)) ?? []
+    }
+    
+    private func persistPendingCompletionPushes() {
+        guard let data = try? JSONEncoder().encode(pendingCompletionPushes) else { return }
+        userDefaults.set(data, forKey: PendingPushConfig.storageKey)
     }
     
     private func pushTraktMovieProgress(tmdbId: Int, progress: Double) async throws {
