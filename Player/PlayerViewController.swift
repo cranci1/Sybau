@@ -331,7 +331,8 @@ public final class PlayerViewController: UIViewController {
         installVolumeHostingControllerIfNeeded()
         
         NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(flushPendingProgress), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         subscribeToSubtitleSettings()
     }
     
@@ -393,6 +394,7 @@ public final class PlayerViewController: UIViewController {
     }
     
     deinit {
+        pipController?.cancelPendingStart()
         renderer.stop()
         NotificationCenter.default.removeObserver(self)
         ProgressManager.shared.flushPendingSave()
@@ -409,6 +411,7 @@ public final class PlayerViewController: UIViewController {
     }
     
     func load(url: URL, preset: PlayerPreset, headers: [String: String]? = nil) {
+        pipController?.cancelPendingStart()
         renderer.load(url: url, with: preset, headers: headers)
         if let info = mediaInfo {
             prepareSeekToLastPosition(for: info)
@@ -904,6 +907,7 @@ public final class PlayerViewController: UIViewController {
     }
     
     @objc private func closeTapped() {
+        pipController?.cancelPendingStart()
         pipController?.delegate = nil
         if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
         renderer.stop()
@@ -1368,12 +1372,16 @@ extension PlayerViewController: PiPControllerDelegate {
     
     @objc private func appWillResignActive() {
         ProgressManager.shared.flushPendingSave()
+    }
+    
+    @objc private func appDidEnterBackground() {
+        ProgressManager.shared.flushPendingSave()
         guard let pip = pipController, !pip.isPictureInPictureActive else { return }
         pip.startPictureInPicture()
     }
-
-    @objc private func flushPendingProgress() {
-        ProgressManager.shared.flushPendingSave()
+    
+    @objc private func appDidBecomeActive() {
+        pipController?.cancelPendingStart()
     }
 }
 

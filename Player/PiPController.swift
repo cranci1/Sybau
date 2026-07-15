@@ -24,7 +24,6 @@ public protocol PiPControllerDelegate: AnyObject {
 public final class PiPController: NSObject {
     private var pipController: AVPictureInPictureController?
     private weak var sampleBufferDisplayLayer: AVSampleBufferDisplayLayer?
-    private var pendingStartWorkItem: DispatchWorkItem?
     private var isStartInProgress = false
     
     // MARK: - Public interface
@@ -75,23 +74,20 @@ public final class PiPController: NSObject {
     func startPictureInPicture() {
         guard isPictureInPictureSupported else {
             Logger.shared.log("PiP not supported on this device", type: "mpv")
+            delegate?.pipControllerDidFailToStart(self)
             return
         }
         
         if pipController == nil { setupPictureInPicture() }
-        guard let pip = pipController else { return }
+        guard let pip = pipController else {
+            delegate?.pipControllerDidFailToStart(self)
+            return
+        }
         guard !isStartInProgress, !pip.isPictureInPictureActive else { return }
         
         guard pip.isPictureInPicturePossible else {
-            pendingStartWorkItem?.cancel()
-            let work = DispatchWorkItem { [weak self] in
-                guard let self else { return }
-                self.isStartInProgress = false
-                self.startPictureInPicture()
-            }
-            pendingStartWorkItem = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
-            Logger.shared.log("PiP start deferred: not yet possible", type: "mpv")
+            Logger.shared.log("PiP start failed: not possible right now", type: "mpv")
+            delegate?.pipControllerDidFailToStart(self)
             return
         }
         
@@ -108,9 +104,7 @@ public final class PiPController: NSObject {
         pipController?.invalidatePlaybackState()
     }
     
-    private func cancelPendingStart() {
-        pendingStartWorkItem?.cancel()
-        pendingStartWorkItem = nil
+    func cancelPendingStart() {
         isStartInProgress = false
     }
 }
