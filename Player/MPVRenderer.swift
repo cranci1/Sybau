@@ -183,7 +183,6 @@ final class MPVRenderer {
         
         setOption(name: "idle", value: "yes")
         setOption(name: "hr-seek", value: "yes")
-        setOption(name: "demuxer", value: "hls")
         setOption(name: "keep-open", value: "yes")
         setOption(name: "video-sync", value: "audio")
         setOption(name: "interpolation", value: "no")
