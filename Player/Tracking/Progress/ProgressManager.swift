@@ -143,7 +143,6 @@ public final class ProgressManager {
             do {
                 let data = try JSONEncoder().encode(snapshot)
                 try data.write(to: self.progressFileURL, options: .atomic)
-                Logger.shared.log("Progress data saved successfully", type: "Progress")
             } catch {
                 Logger.shared.log("Failed to save progress data: \(error.localizedDescription)", type: "Error")
             }

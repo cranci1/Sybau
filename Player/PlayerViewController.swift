@@ -428,9 +428,9 @@ public final class PlayerViewController: UIViewController {
         case .movie(_, let title):
             subtitleLabel.text = "Movie"
             titleLabel.text = title
-        case .episode(let showTitle, _, let season, let episode):
+        case .episode(_, let showTitle, let season, let episode):
             subtitleLabel.text = String(format: "S%d E%d", season, episode)
-            titleLabel.text = "\(showTitle)"
+            titleLabel.text = showTitle ?? "Episode \(episode)"
         }
     }
     
@@ -572,8 +572,6 @@ public final class PlayerViewController: UIViewController {
         gradientLayer.name = "gradientLayer"
         gradientLayer.colors = [
             UIColor.black.withAlphaComponent(0.5).cgColor,
-            UIColor.clear.cgColor,
-            UIColor.clear.cgColor,
             UIColor.black.withAlphaComponent(0.5).cgColor
         ]
         gradientLayer.locations = [0.0, 0.2, 0.8, 1.0]
