@@ -183,6 +183,7 @@ final class MPVRenderer {
         
         setOption(name: "idle", value: "yes")
         setOption(name: "hr-seek", value: "yes")
+        setOption(name: "demuxer", value: "hls")
         setOption(name: "keep-open", value: "yes")
         setOption(name: "video-sync", value: "audio")
         setOption(name: "interpolation", value: "no")
@@ -280,7 +281,6 @@ final class MPVRenderer {
         renderQueue.async { [weak self] in
             guard let self else { return }
             self.apply(commands: preset.commands, on: handle)
-            self.command(handle, ["stop"])
             self.updateHTTPHeaders(headers)
             let target = url.isFileURL ? url.path : url.absoluteString
             self.command(handle, ["loadfile", target, "replace"])
