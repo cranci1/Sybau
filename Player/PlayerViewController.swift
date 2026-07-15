@@ -331,6 +331,7 @@ public final class PlayerViewController: UIViewController {
         installVolumeHostingControllerIfNeeded()
         
         NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(flushPendingProgress), name: UIApplication.didEnterBackgroundNotification, object: nil)
         subscribeToSubtitleSettings()
     }
     
@@ -394,6 +395,7 @@ public final class PlayerViewController: UIViewController {
     deinit {
         renderer.stop()
         NotificationCenter.default.removeObserver(self)
+        ProgressManager.shared.flushPendingSave()
     }
     
     // MARK: - Public init
@@ -905,6 +907,7 @@ public final class PlayerViewController: UIViewController {
         pipController?.delegate = nil
         if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
         renderer.stop()
+        ProgressManager.shared.flushPendingSave()
         if presentingViewController != nil {
             dismiss(animated: true)
         } else {
@@ -1364,8 +1367,13 @@ extension PlayerViewController: PiPControllerDelegate {
     public func pipControllerCurrentTime(_ c: PiPController) -> Double { cachedPosition }
     
     @objc private func appWillResignActive() {
+        ProgressManager.shared.flushPendingSave()
         guard let pip = pipController, !pip.isPictureInPictureActive else { return }
         pip.startPictureInPicture()
+    }
+
+    @objc private func flushPendingProgress() {
+        ProgressManager.shared.flushPendingSave()
     }
 }
 

@@ -99,8 +99,10 @@ public final class ProgressManager {
     private let fileManager = FileManager.default
     private var progressData: ProgressData = ProgressData()
     private let progressFileURL: URL
-    private let debounceInterval: TimeInterval = 2.0
-    private var debounceTask: Task<Void, Never>?
+    private let saveThrottleInterval: TimeInterval = 5.0
+    private var throttleTask: Task<Void, Never>?
+    private var isThrottleScheduled = false
+    private var hasPendingChanges = false
     
     private let accessQueue = DispatchQueue(label: "com.sybau.progress-manager", attributes: .concurrent)
     
@@ -148,14 +150,44 @@ public final class ProgressManager {
         }
     }
     
-    private func debouncedSave() {
-        debounceTask?.cancel()
-        debounceTask = Task {
-            try? await Task.sleep(nanoseconds: UInt64(debounceInterval * 1_000_000_000))
-            if !Task.isCancelled {
+    private func saveProgressDataSync() {
+        accessQueue.sync(flags: .barrier) {
+            let snapshot = self.progressData
+            do {
+                let data = try JSONEncoder().encode(snapshot)
+                try data.write(to: self.progressFileURL, options: .atomic)
+                Logger.shared.log("Progress data flushed successfully", type: "Progress")
+            } catch {
+                Logger.shared.log("Failed to flush progress data: \(error.localizedDescription)", type: "Error")
+            }
+        }
+    }
+    
+    private func throttledSave() {
+        hasPendingChanges = true
+        guard !isThrottleScheduled else { return }
+        isThrottleScheduled = true
+        throttleTask = Task { [weak self] in
+            guard let self else { return }
+            try? await Task.sleep(nanoseconds: UInt64(self.saveThrottleInterval * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self.isThrottleScheduled = false
+            if self.hasPendingChanges {
+                self.hasPendingChanges = false
                 self.saveProgressData()
             }
         }
+    }
+    
+    @discardableResult
+    public func flushPendingSave() -> Bool {
+        throttleTask?.cancel()
+        throttleTask = nil
+        isThrottleScheduled = false
+        guard hasPendingChanges else { return false }
+        hasPendingChanges = false
+        saveProgressDataSync()
+        return true
     }
     
     // MARK: - Movie Progress
@@ -176,7 +208,7 @@ public final class ProgressManager {
             if entry.progress >= 0.95 { entry.isWatched = true }
             self.progressData.updateMovie(entry)
         }
-        debouncedSave()
+        throttledSave()
         
         let progress = min(currentTime / totalDuration, 1.0)
         Task { @MainActor in
@@ -247,7 +279,7 @@ public final class ProgressManager {
             if entry.progress >= 0.95 { entry.isWatched = true }
             self.progressData.updateEpisode(entry)
         }
-        debouncedSave()
+        throttledSave()
         
         let progress = min(currentTime / totalDuration, 1.0)
         Task { @MainActor in
