@@ -202,6 +202,7 @@ final class MPVRenderer {
         setOption(name: "cache-initial", value: "100")
         setOption(name: "demuxer-max-bytes", value: "64M")
         setOption(name: "demuxer-readahead-secs", value: "10")
+        setOption(name: "network-timeout", value: "20")
         
         let initStatus = mpv_initialize(handle)
         guard initStatus >= 0 else {
@@ -695,6 +696,10 @@ final class MPVRenderer {
                 self.delegate?.renderer(self, didChangeLoading: false)
                 self.delegate?.renderer(self, didBecomeReadyToSeek: true)
             }
+        case MPV_EVENT_END_FILE:
+            if let ef = event.data?.assumingMemoryBound(to: mpv_event_end_file.self) {
+                handleEndFile(reason: ef.pointee.reason, error: ef.pointee.error)
+            }
         case MPV_EVENT_PROPERTY_CHANGE:
             if let nameCStr = event.data?
                 .assumingMemoryBound(to: mpv_event_property.self).pointee.name {
@@ -713,6 +718,26 @@ final class MPVRenderer {
                     Logger.shared.log("mpv[\(component)] \(text)", type: "Warn")
                 }
             }
+        default:
+            break
+        }
+    }
+    
+    private func handleEndFile(reason: mpv_end_file_reason, error: Int32) {
+        switch reason {
+        case MPV_END_FILE_REASON_ERROR:
+            let wasLoading = stateQueue.sync { _isLoading }
+            let errString = String(cString: mpv_error_string(error))
+            Logger.shared.log("Playback failed to load: \(errString)", type: "Error")
+            if wasLoading {
+                setIsLoading(false)
+                dispatchToMain { [weak self] in
+                    guard let self else { return }
+                    self.delegate?.renderer(self, didChangeLoading: false)
+                }
+            }
+        case MPV_END_FILE_REASON_REDIRECT:
+            break
         default:
             break
         }
