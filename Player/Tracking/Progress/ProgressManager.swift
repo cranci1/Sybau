@@ -376,6 +376,35 @@ public final class ProgressManager {
             }
         }
     }
+    
+    // MARK: - Deletion
+    
+    public func removeMovieProgress(movieId: Int) {
+        accessQueue.async(flags: .barrier) { [weak self] in
+            guard let self else { return }
+            self.progressData.movieProgress.removeAll { $0.id == movieId }
+        }
+        saveProgressData()
+    }
+    
+    public func removeEpisodeProgress(showId: Int, seasonNumber: Int, episodeNumber: Int) {
+        accessQueue.async(flags: .barrier) { [weak self] in
+            guard let self else { return }
+            self.progressData.episodeProgress.removeAll {
+                $0.showId == showId && $0.seasonNumber == seasonNumber && $0.episodeNumber == episodeNumber
+            }
+        }
+        saveProgressData()
+    }
+    
+    public func removeContinueWatchingItem(_ item: ContinueWatchingItem) {
+        if item.isMovie {
+            removeMovieProgress(movieId: item.tmdbId)
+        } else {
+            guard let season = item.seasonNumber, let episode = item.episodeNumber else { return }
+            removeEpisodeProgress(showId: item.tmdbId, seasonNumber: season, episodeNumber: episode)
+        }
+    }
 }
 
 // MARK: - MediaInfo Enum
