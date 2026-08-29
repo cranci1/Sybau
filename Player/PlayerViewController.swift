@@ -368,6 +368,14 @@ public final class PlayerViewController: UIViewController {
             grad.frame = controlsOverlayView.bounds
         }
         CATransaction.commit()
+        
+        let viewportSize = primaryRenderView.bounds.size
+        if viewportSize.width > 0, viewportSize.height > 0 {
+            let scale = primaryRenderView.window?.screen.scale
+            ?? view.window?.screen.scale
+            ?? UIScreen.main.scale
+            renderer.updateViewport(size: viewportSize, scale: scale)
+        }
     }
     
     public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
