@@ -154,8 +154,38 @@ final class MPVRenderer {
         stateQueue.sync { (_cachedPosition, _cachedDuration) }
     }
     
+    func updateViewport(size: CGSize, scale: CGFloat) {
+        guard size.width > 0, size.height > 0 else { return }
+        
+        let safeSize = CGSize(
+            width: max(size.width, 1),
+            height: max(size.height, 1)
+        )
+        let safeScale = max(scale, 1)
+        
+        let changed = stateQueue.sync(flags: .barrier) {
+            let didChange = self._viewportSize != safeSize || self._viewportScale != safeScale
+            self._viewportSize = safeSize
+            self._viewportScale = safeScale
+            return didChange
+        }
+        
+        if changed {
+            scheduleRender()
+        }
+    }
+    
+    private func currentViewport() -> (size: CGSize, scale: CGFloat) {
+        stateQueue.sync {
+            (_viewportSize, _viewportScale)
+        }
+    }
+    
     private var renderScheduled = false
     private var lastRenderDimensions: CGSize = .zero
+    
+    private var _viewportSize: CGSize = .zero
+    private var _viewportScale: CGFloat = 1.0
     
     // MARK: - Init / deinit
     
@@ -485,13 +515,28 @@ final class MPVRenderer {
     
     private func targetRenderSize(for videoSize: CGSize) -> CGSize {
         guard videoSize.width > 0, videoSize.height > 0 else { return videoSize }
-        guard let screen = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.screen }).first else { return videoSize }
         
-        let scale = max(screen.scale, 1)
-        let maxWidth = max(screen.bounds.width  * scale, 1.0)
-        let maxHeight = max(screen.bounds.height * scale, 1.0)
-        let ratio = max(videoSize.width / maxWidth, videoSize.height / maxHeight, 1)
-        return CGSize(width: max(1, Int(videoSize.width / ratio)), height: max(1, Int(videoSize.height / ratio)))
+        let viewport = currentViewport()
+        guard viewport.size.width > 0, viewport.size.height > 0 else {
+            return CGSize(
+                width: max(1, Int(videoSize.width)),
+                height: max(1, Int(videoSize.height))
+            )
+        }
+        
+        let maxWidth = max(viewport.size.width * viewport.scale, 1)
+        let maxHeight = max(viewport.size.height * viewport.scale, 1)
+        
+        let ratio = max(
+            videoSize.width / maxWidth,
+            videoSize.height / maxHeight,
+            1
+        )
+        
+        return CGSize(
+            width: max(1, Int((videoSize.width / ratio).rounded(.down))),
+            height: max(1, Int((videoSize.height / ratio).rounded(.down)))
+        )
     }
     
     private func createPixelBufferPool(width: Int, height: Int) {
