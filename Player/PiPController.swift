@@ -25,13 +25,14 @@ public final class PiPController: NSObject {
     private var pipController: AVPictureInPictureController?
     private weak var sampleBufferDisplayLayer: AVSampleBufferDisplayLayer?
     private var isStartInProgress = false
+    private let hasSampleBufferSource: Bool
     
     // MARK: - Public interface
     
     weak var delegate: PiPControllerDelegate?
     
     var isPictureInPictureSupported: Bool {
-        AVPictureInPictureController.isPictureInPictureSupported()
+        hasSampleBufferSource && AVPictureInPictureController.isPictureInPictureSupported()
     }
     
     var isPictureInPictureActive: Bool {
@@ -46,8 +47,15 @@ public final class PiPController: NSObject {
     
     init(sampleBufferDisplayLayer: AVSampleBufferDisplayLayer) {
         self.sampleBufferDisplayLayer = sampleBufferDisplayLayer
+        self.hasSampleBufferSource = true
         super.init()
         setupPictureInPicture()
+    }
+    
+    init(metalLayer: CAMetalLayer) {
+        self.sampleBufferDisplayLayer = nil
+        self.hasSampleBufferSource = false
+        super.init()
     }
     
     // MARK: - Setup

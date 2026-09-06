@@ -318,7 +318,7 @@ public final class PlayerViewController: UIViewController {
             presentStartupErrorAlert(message: "Failed to start renderer: \(error)")
         }
         
-        pipController = PiPController(sampleBufferDisplayLayer: primaryRenderView.displayLayer)
+        pipController = PiPController(metalLayer: primaryRenderView.displayLayer)
         pipController?.delegate = self
         
         showControlsTemporarily()
