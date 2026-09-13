@@ -278,9 +278,18 @@ public final class PlayerViewController: UIViewController {
     private var pipController: PiPController?
     private var initialHeaders: [String: String]?
     
+    private enum SubtitleSource: Equatable {
+        case embedded(Int)
+        case external(Int)
+    }
+    
     private var subtitleURLs: [String] = []
     private var currentSubtitleIndex: Int = 0
     private var pendingSubtitleURLs: [String]?
+    private var embeddedSubtitleTracks: [SubtitleTrackInfo] = []
+    private var currentSubtitleSource: SubtitleSource?
+    private var audioTracks: [AudioTrackInfo] = []
+    private var currentAudioTrackID: Int?
     private var lastUIUpdateTime: TimeInterval = 0
     
     private var originalSpeed: Double = 1.0
@@ -610,13 +619,34 @@ public final class PlayerViewController: UIViewController {
     private func setupMoreButtonMenu() {
         let currentSpeed = renderer.getSpeed()
         let speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
-        let actions = speedOptions.map { speed in
+        let speedActions = speedOptions.map { speed in
             UIAction(title: "\(speed)x", state: currentSpeed == speed ? .on : .off) { [weak self] _ in
                 self?.renderer.setSpeed(speed)
             }
         }
-        let menu = UIMenu(title: "Playback Speed", image: UIImage(systemName: "speedometer"), children: actions)
-        moreButton.menu = menu
+        let speedMenu = UIMenu(title: "Playback Speed", image: UIImage(systemName: "speedometer"), children: speedActions)
+        
+        var children: [UIMenuElement] = [speedMenu]
+        
+        if audioTracks.count > 1 {
+            let audioActions = audioTracks.map { track -> UIAction in
+                let selected = currentAudioTrackID == track.id
+                return UIAction(
+                    title: track.displayName,
+                    image: UIImage(systemName: "waveform"),
+                    state: selected ? .on : .off
+                ) { [weak self] _ in
+                    guard let self else { return }
+                    self.currentAudioTrackID = track.id
+                    self.renderer.selectAudioTrack(id: track.id)
+                    self.setupMoreButtonMenu()
+                }
+            }
+            let audioMenu = UIMenu(title: "Audio Track", image: UIImage(systemName: "waveform"), children: audioActions)
+            children.append(audioMenu)
+        }
+        
+        moreButton.menu = UIMenu(children: children)
         moreButton.showsMenuAsPrimaryAction = true
     }
     
@@ -1048,26 +1078,49 @@ public final class PlayerViewController: UIViewController {
             image: UIImage(systemName: "xmark"),
             state: isVisible ? .off : .on
         ) { [weak self] _ in
+            guard let self else { return }
             UserDefaults.standard.set(false, forKey: "subtitles_isVisible")
-            self?.renderer.setSubtitleVisible(false)
-            self?.updateSubtitleButtonAppearance()
-            self?.updateSubtitleMenu()
+            self.currentSubtitleSource = nil
+            self.renderer.setSubtitleVisible(false)
+            self.updateSubtitleButtonAppearance()
+            self.updateSubtitleMenu()
         }
         actions.append(disableAction)
         
-        for (i, _) in subtitleURLs.enumerated() {
-            let selected = isVisible && currentSubtitleIndex == i
+        for track in embeddedSubtitleTracks {
+            let selected = isVisible && currentSubtitleSource == .embedded(track.id)
             actions.append(UIAction(
-                title: "Subtitle \(i + 1)",
+                title: track.displayName,
                 image: UIImage(systemName: "captions.bubble"),
                 state: selected ? .on : .off
             ) { [weak self] _ in
-                self?.currentSubtitleIndex = i
+                guard let self else { return }
+                self.currentSubtitleSource = .embedded(track.id)
                 UserDefaults.standard.set(true, forKey: "subtitles_isVisible")
-                self?.loadCurrentSubtitle()
-                self?.renderer.setSubtitleVisible(true)
-                self?.updateSubtitleButtonAppearance()
-                self?.updateSubtitleMenu()
+                self.renderer.selectSubtitleTrack(id: track.id)
+                self.renderer.applySubtitleStyle(self.currentSubtitleStyle())
+                self.renderer.setSubtitleVisible(true)
+                self.updateSubtitleButtonAppearance()
+                self.updateSubtitleMenu()
+            })
+        }
+        
+        for (i, _) in subtitleURLs.enumerated() {
+            let selected = isVisible && currentSubtitleSource == .external(i)
+            let title = embeddedSubtitleTracks.isEmpty ? "Subtitle \(i + 1)" : "External Subtitle \(i + 1)"
+            actions.append(UIAction(
+                title: title,
+                image: UIImage(systemName: "captions.bubble"),
+                state: selected ? .on : .off
+            ) { [weak self] _ in
+                guard let self else { return }
+                self.currentSubtitleIndex = i
+                self.currentSubtitleSource = .external(i)
+                UserDefaults.standard.set(true, forKey: "subtitles_isVisible")
+                self.loadCurrentSubtitle()
+                self.renderer.setSubtitleVisible(true)
+                self.updateSubtitleButtonAppearance()
+                self.updateSubtitleMenu()
             })
         }
         
@@ -1152,6 +1205,7 @@ public final class PlayerViewController: UIViewController {
         guard !urls.isEmpty else { return }
         subtitleButton.isHidden = false
         currentSubtitleIndex = 0
+        currentSubtitleSource = .external(0)
         UserDefaults.standard.set(true, forKey: "subtitles_isVisible")
         renderer.applySubtitleStyle(currentSubtitleStyle())
         renderer.setSubtitleVisible(true)
@@ -1331,10 +1385,27 @@ extension PlayerViewController: MPVRendererDelegate {
             self.setupMoreButtonMenu()
         }
     }
-    func renderer(_ renderer: MPVRenderer, didActivateSubtitleTrack trackID: Int) {
-        guard trackID > 0 else { return }
-        renderer.applySubtitleStyle(currentSubtitleStyle())
-        renderer.setSubtitleVisible(subtitleIsVisible)
+    func renderer(_ renderer: MPVRenderer, didUpdateSubtitleTracks tracks: [SubtitleTrackInfo]) {
+        embeddedSubtitleTracks = tracks
+        
+        if currentSubtitleSource == nil, pendingSubtitleURLs == nil,
+           let autoSelected = tracks.first(where: { $0.isSelected && !$0.isExternal }) {
+            currentSubtitleSource = .embedded(autoSelected.id)
+        }
+        
+        if !tracks.isEmpty {
+            subtitleButton.isHidden = false
+        }
+        updateSubtitleButtonAppearance()
+        updateSubtitleMenu()
+    }
+    
+    func renderer(_ renderer: MPVRenderer, didUpdateAudioTracks tracks: [AudioTrackInfo]) {
+        audioTracks = tracks
+        if currentAudioTrackID == nil, let selected = tracks.first(where: { $0.isSelected }) {
+            currentAudioTrackID = selected.id
+        }
+        setupMoreButtonMenu()
     }
 }
 

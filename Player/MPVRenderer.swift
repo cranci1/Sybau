@@ -14,6 +14,38 @@ protocol MPVRendererDelegate: AnyObject {
     func renderer(_ renderer: MPVRenderer, didChangePause isPaused: Bool)
     func renderer(_ renderer: MPVRenderer, didChangeLoading isLoading: Bool)
     func renderer(_ renderer: MPVRenderer, didBecomeReadyToSeek: Bool)
+    func renderer(_ renderer: MPVRenderer, didUpdateSubtitleTracks tracks: [SubtitleTrackInfo])
+    func renderer(_ renderer: MPVRenderer, didUpdateAudioTracks tracks: [AudioTrackInfo])
+}
+
+struct SubtitleTrackInfo: Equatable {
+    let id: Int
+    let title: String?
+    let lang: String?
+    let codec: String?
+    let isExternal: Bool
+    let isSelected: Bool
+    
+    var displayName: String {
+        if let title, !title.isEmpty { return title }
+        if let lang, !lang.isEmpty { return lang.uppercased() }
+        return "Track \(id)"
+    }
+}
+
+struct AudioTrackInfo: Equatable {
+    let id: Int
+    let title: String?
+    let lang: String?
+    let codec: String?
+    let isExternal: Bool
+    let isSelected: Bool
+    
+    var displayName: String {
+        if let title, !title.isEmpty { return title }
+        if let lang, !lang.isEmpty { return lang.uppercased() }
+        return "Track \(id)"
+    }
 }
 
 struct SubtitleStyle {
@@ -261,7 +293,8 @@ final class MPVRenderer {
             ("dheight", MPV_FORMAT_INT64),
             ("duration", MPV_FORMAT_DOUBLE),
             ("time-pos", MPV_FORMAT_DOUBLE),
-            ("pause", MPV_FORMAT_FLAG)
+            ("pause", MPV_FORMAT_FLAG),
+            ("track-list", MPV_FORMAT_NODE)
         ]
         
         for (name, format) in properties {
@@ -391,9 +424,12 @@ final class MPVRenderer {
             refreshVideoState()
         case MPV_EVENT_FILE_LOADED:
             setIsLoading(false)
+            let (subs, audio) = fetchTracks()
             dispatchToMain { [weak self] in
                 guard let self else { return }
                 self.delegate?.renderer(self, didChangeLoading: false)
+                self.delegate?.renderer(self, didUpdateSubtitleTracks: subs)
+                self.delegate?.renderer(self, didUpdateAudioTracks: audio)
                 self.delegate?.renderer(self, didBecomeReadyToSeek: true)
             }
         case MPV_EVENT_END_FILE:
@@ -489,9 +525,77 @@ final class MPVRenderer {
                     }
                 }
             }
+        case "track-list":
+            let (subs, audio) = fetchTracks()
+            dispatchToMain { [weak self] in
+                guard let self else { return }
+                self.delegate?.renderer(self, didUpdateSubtitleTracks: subs)
+                self.delegate?.renderer(self, didUpdateAudioTracks: audio)
+            }
         default:
             break
         }
+    }
+    
+    private func fetchTracks() -> (subs: [SubtitleTrackInfo], audio: [AudioTrackInfo]) {
+        guard let handle = mpv else { return ([], []) }
+        var node = mpv_node()
+        let status = "track-list".withCString { namePtr in
+            mpv_get_property(handle, namePtr, MPV_FORMAT_NODE, &node)
+        }
+        guard status >= 0 else { return ([], []) }
+        defer { mpv_free_node_contents(&node) }
+        
+        guard node.format == MPV_FORMAT_NODE_ARRAY, let list = node.u.list else { return ([], []) }
+        
+        var subs: [SubtitleTrackInfo] = []
+        var audio: [AudioTrackInfo] = []
+        let count = Int(list.pointee.num)
+        for i in 0..<count {
+            let entry = nodeMapToDict(list.pointee.values[i])
+            guard let rawID = entry["id"] as? Int64 else { continue }
+            
+            let id = Int(rawID)
+            let title = entry["title"] as? String
+            let lang = entry["lang"] as? String
+            let codec = entry["codec"] as? String
+            let isExternal = (entry["external"] as? Bool) ?? false
+            let isSelected = (entry["selected"] as? Bool) ?? false
+            
+            switch entry["type"] as? String {
+            case "sub":
+                subs.append(SubtitleTrackInfo(id: id, title: title, lang: lang, codec: codec, isExternal: isExternal, isSelected: isSelected))
+            case "audio":
+                audio.append(AudioTrackInfo(id: id, title: title, lang: lang, codec: codec, isExternal: isExternal, isSelected: isSelected))
+            default:
+                break
+            }
+        }
+        return (subs, audio)
+    }
+    
+    private func nodeMapToDict(_ node: mpv_node) -> [String: Any] {
+        guard node.format == MPV_FORMAT_NODE_MAP, let list = node.u.list else { return [:] }
+        var result: [String: Any] = [:]
+        let count = Int(list.pointee.num)
+        for i in 0..<count {
+            guard let keyPtr = list.pointee.keys[i] else { continue }
+            let key = String(cString: keyPtr)
+            let value = list.pointee.values[i]
+            switch value.format {
+            case MPV_FORMAT_STRING:
+                if let s = value.u.string { result[key] = String(cString: s) }
+            case MPV_FORMAT_INT64:
+                result[key] = value.u.int64
+            case MPV_FORMAT_FLAG:
+                result[key] = value.u.flag != 0
+            case MPV_FORMAT_DOUBLE:
+                result[key] = value.u.double_
+            default:
+                break
+            }
+        }
+        return result
     }
     
     @discardableResult
@@ -555,6 +659,22 @@ final class MPVRenderer {
     
     func setSubtitleVisible(_ visible: Bool) {
         setProperty(name: "sub-visibility", value: visible ? "yes" : "no")
+    }
+    
+    func selectSubtitleTrack(id: Int) {
+        setProperty(name: "sid", value: String(id))
+    }
+    
+    func disableSubtitleTrack() {
+        setProperty(name: "sid", value: "no")
+    }
+    
+    func selectAudioTrack(id: Int) {
+        setProperty(name: "aid", value: String(id))
+    }
+    
+    func disableAudioTrack() {
+        setProperty(name: "aid", value: "no")
     }
     
     func addSubtitleTrack(urlString: String) {
