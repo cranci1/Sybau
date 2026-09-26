@@ -199,7 +199,12 @@ final class MPVRenderer {
             }
         }
         
-        eventQueueGroup.wait()
+        let waitResult = eventQueueGroup.wait(timeout: .now() + 3)
+        if waitResult == .timedOut {
+            Logger.shared.log("mpv event loop did not shut down within timeout", type: "Error")
+            isStopping = false
+            return
+        }
         
         renderQueueSync { [weak self] in
             guard let self else { return }
@@ -397,13 +402,11 @@ final class MPVRenderer {
         renderQueue.async { [weak self] in
             guard let self, !self.eventLoopRunning, !self.isStopping else { return }
             self.eventLoopRunning = true
-            self.eventQueueGroup.enter()
-            
-            self.eventQueue.async { [weak self] in
+
+            self.eventQueue.async(group: self.eventQueueGroup) { [weak self] in
                 guard let self else { return }
                 defer {
                     self.eventLoopRunning = false
-                    self.eventQueueGroup.leave()
                 }
                 
                 while !self.isStopping {
