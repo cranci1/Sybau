@@ -370,44 +370,30 @@ public final class PlayerViewController: UIViewController {
         super.viewDidLayoutSubviews()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        primaryRenderView.frame = videoContainer.bounds
-        primaryRenderView.layoutIfNeeded()
-        
         if let grad = controlsOverlayView.layer.sublayers?.first(where: { $0.name == "gradientLayer" }) {
             grad.frame = controlsOverlayView.bounds
         }
         CATransaction.commit()
         
+        updateRendererViewport()
+    }
+    
+    private func updateRendererViewport() {
         let viewportSize = primaryRenderView.bounds.size
-        if viewportSize.width > 0, viewportSize.height > 0 {
-            let scale = primaryRenderView.window?.screen.scale
-            ?? view.window?.screen.scale
-            ?? UIScreen.main.scale
-            renderer.updateViewport(size: viewportSize, scale: scale)
-        }
+        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
+        let scale = primaryRenderView.window?.screen.nativeScale
+        ?? view.window?.screen.nativeScale
+        ?? UIScreen.main.nativeScale
+        renderer.updateViewport(size: viewportSize, scale: scale)
     }
     
     public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
         super.viewWillTransition(to: size, with: coordinator)
-        coordinator.animate(alongsideTransition: { [weak self] context in
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
             guard let self else { return }
-            let prev = self.primaryRenderView.transform
-            self.primaryRenderView.transform = prev.scaledBy(x: 0.985, y: 0.985)
-            UIView.animateKeyframes(
-                withDuration: context.transitionDuration, delay: 0,
-                options: [.beginFromCurrentState, .calculationModeCubic, .allowUserInteraction]
-            ) {
-                UIView.addKeyframe(withRelativeStartTime: 0.0, relativeDuration: 0.75) {
-                    self.videoContainer.layoutIfNeeded()
-                    self.primaryRenderView.layoutIfNeeded()
-                }
-                UIView.addKeyframe(withRelativeStartTime: 0.2, relativeDuration: 0.8) {
-                    self.primaryRenderView.transform = prev
-                }
-            }
-        }, completion: { [weak self] _ in
-            self?.primaryRenderView.transform = .identity
-        })
+            self.view.layoutIfNeeded()
+            self.updateRendererViewport()
+        }
     }
     
     deinit {

@@ -373,16 +373,17 @@ final class MPVRenderer {
         guard size.width > 0, size.height > 0, scale > 0 else { return }
         guard let layer = metalLayer else { return }
         
-        renderQueue.async { [weak self, weak layer] in
-            guard let self, let layer else { return }
-            
+        let target = CGSize(
+            width: max(1, (size.width * scale).rounded()),
+            height: max(1, (size.height * scale).rounded())
+        )
+        
+        renderQueue.async { [weak layer] in
+            guard let layer else { return }
+            guard layer.drawableSize != target else { return }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            layer.contentsScale = scale
-            layer.drawableSize = CGSize(
-                width: max(1, size.width * scale),
-                height: max(1, size.height * scale)
-            )
+            layer.drawableSize = target
             CATransaction.commit()
         }
     }
