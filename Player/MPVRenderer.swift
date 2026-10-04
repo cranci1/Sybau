@@ -130,6 +130,7 @@ final class MPVRenderer {
     private weak var metalLayer: CAMetalLayer?
     private var refit: DispatchWorkItem?
     private var size = false
+    private var lastReportedPosition: Double = -1
     
     init(primaryDisplayLayer: CAMetalLayer) {
         self.metalLayer = primaryDisplayLayer
@@ -147,7 +148,8 @@ final class MPVRenderer {
         }
         mpv = handle
         
-        setOption(name: "hwdec", value: "videotoolbox")
+        setOption(name: "profile", value: "fast")
+        setOption(name: "hwdec", value: "videotoolbox,videotoolbox-copy")
         
         setOption(name: "idle", value: "yes")
         setOption(name: "hr-seek", value: "yes")
@@ -230,6 +232,7 @@ final class MPVRenderer {
         currentURL = url
         currentHeaders = headers
         size = false
+        resetPositionThrottle()
         
         setIsLoading(true)
         DispatchQueue.main.async { [weak self] in
@@ -518,6 +521,10 @@ final class MPVRenderer {
             var v = Double(0)
             if getProperty(handle: handle, name: name, format: MPV_FORMAT_DOUBLE, value: &v) >= 0 {
                 let dur = stateQueue.sync { _cachedDuration }
+                let last = stateQueue.sync { lastReportedPosition }
+                let nearEnd = dur > 0 && dur - v < 1
+                guard Int(v.rounded(.down)) != Int(last.rounded(.down)) || nearEnd else { return }
+                stateQueue.async(flags: .barrier) { self.lastReportedPosition = v }
                 setCachedPosition(v, duration: dur)
                 dispatchToMain { [weak self] in
                     guard let self else { return }
@@ -642,7 +649,12 @@ final class MPVRenderer {
         setProperty(name: "pause", value: "yes")
     }
     
+    private func resetPositionThrottle() {
+        stateQueue.async(flags: .barrier) { self.lastReportedPosition = -1 }
+    }
+    
     func seek(to seconds: Double) {
+        resetPositionThrottle()
         guard let handle = mpv else { return }
         renderQueue.async { [weak self] in
             guard let self else { return }
@@ -651,6 +663,7 @@ final class MPVRenderer {
     }
     
     func seek(by seconds: Double) {
+        resetPositionThrottle()
         guard let handle = mpv else { return }
         renderQueue.async { [weak self] in
             guard let self else { return }
