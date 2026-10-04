@@ -374,26 +374,6 @@ public final class PlayerViewController: UIViewController {
             grad.frame = controlsOverlayView.bounds
         }
         CATransaction.commit()
-        
-        updateRendererViewport()
-    }
-    
-    private func updateRendererViewport() {
-        let viewportSize = primaryRenderView.bounds.size
-        guard viewportSize.width > 0, viewportSize.height > 0 else { return }
-        let scale = primaryRenderView.window?.screen.nativeScale
-        ?? view.window?.screen.nativeScale
-        ?? UIScreen.main.nativeScale
-        renderer.updateViewport(size: viewportSize, scale: scale)
-    }
-    
-    public override func viewWillTransition(to size: CGSize, with coordinator: UIViewControllerTransitionCoordinator) {
-        super.viewWillTransition(to: size, with: coordinator)
-        coordinator.animate(alongsideTransition: nil) { [weak self] _ in
-            guard let self else { return }
-            self.view.layoutIfNeeded()
-            self.updateRendererViewport()
-        }
     }
     
     deinit {

@@ -59,12 +59,30 @@ final class VideoDisplayView: UIView {
 }
 
 final class MetalLayer: CAMetalLayer {
+    var onResize: (() -> Void)?
+    
     override var drawableSize: CGSize {
         get { super.drawableSize }
         set {
-            if newValue.width > 1 && newValue.height > 1 {
+            if Int(newValue.width) > 1 && Int(newValue.height) > 1 {
                 super.drawableSize = newValue
             }
         }
+    }
+    
+    override var bounds: CGRect {
+        didSet { if bounds.size != oldValue.size { syncDrawableSize() } }
+    }
+
+    override var contentsScale: CGFloat {
+        didSet { if contentsScale != oldValue { syncDrawableSize() } }
+    }
+
+    private func syncDrawableSize() {
+        let pixelSize = CGSize(width: (bounds.width  * contentsScale).rounded(), height: (bounds.height * contentsScale).rounded())
+        guard pixelSize.width > 1, pixelSize.height > 1, pixelSize != drawableSize else { return }
+
+        drawableSize = pixelSize
+        onResize?()
     }
 }

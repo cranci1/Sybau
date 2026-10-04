@@ -128,6 +128,8 @@ final class MPVRenderer {
     // MARK: - Init / deinit
     
     private weak var metalLayer: CAMetalLayer?
+    private var refit: DispatchWorkItem?
+    private var size = false
     
     init(primaryDisplayLayer: CAMetalLayer) {
         self.metalLayer = primaryDisplayLayer
@@ -178,6 +180,9 @@ final class MPVRenderer {
         
         observeProperties()
         installWakeupHandler()
+        (metalLayer as? MetalLayer)?.onResize = { [weak self] in
+            DispatchQueue.main.async { self?.layerResize() }
+        }
         isRunning = true
     }
     
@@ -187,6 +192,8 @@ final class MPVRenderer {
         
         isRunning = false
         isStopping = true
+        refit?.cancel()
+        (metalLayer as? MetalLayer)?.onResize = nil
         var handleForShutdown: OpaquePointer?
         
         renderQueueSync { [weak self] in
@@ -222,6 +229,7 @@ final class MPVRenderer {
         currentPreset = preset
         currentURL = url
         currentHeaders = headers
+        size = false
         
         setIsLoading(true)
         DispatchQueue.main.async { [weak self] in
@@ -369,23 +377,24 @@ final class MPVRenderer {
         _videoSize = CGSize(width: max(width, 0), height: max(height, 0))
     }
     
-    func updateViewport(size: CGSize, scale: CGFloat) {
-        guard size.width > 0, size.height > 0, scale > 0 else { return }
-        guard let layer = metalLayer else { return }
-        
-        let target = CGSize(
-            width: max(1, (size.width * scale).rounded()),
-            height: max(1, (size.height * scale).rounded())
-        )
-        
-        renderQueue.async { [weak layer] in
-            guard let layer else { return }
-            guard layer.drawableSize != target else { return }
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            layer.drawableSize = target
-            CATransaction.commit()
-        }
+    private func layerResize() {
+        refit?.cancel()
+        let videoR = DispatchWorkItem { [weak self] in self?.placeOutput() }
+        refit = videoR
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: videoR)
+    }
+    
+    private func placeOutput() {
+        guard !isStopping, let handle = mpv, let layer = metalLayer else { return }
+        var w: Int64 = 0, h: Int64 = 0, aspect: Double = 0
+        guard getProperty(handle: handle, name: "osd-dimensions/w", format: MPV_FORMAT_INT64, value: &w) >= 0,
+              getProperty(handle: handle, name: "osd-dimensions/h", format: MPV_FORMAT_INT64, value: &h) >= 0,
+              getProperty(handle: handle, name: "video-params/aspect", format: MPV_FORMAT_DOUBLE, value: &aspect) >= 0,
+              w > 0, h > 0, aspect > 0 else { return }
+        let target = layer.drawableSize
+        guard abs(Double(w) - Double(target.width)) > 2 || abs(Double(h) - Double(target.height)) > 2 else { return }
+        size.toggle()
+        setProperty(name: "video-aspect-override", value: size ? String(aspect * (1 + 1e-6)) : "no")
     }
     
     private func apply(commands: [[String]], on handle: OpaquePointer) {
@@ -403,7 +412,7 @@ final class MPVRenderer {
         renderQueue.async { [weak self] in
             guard let self, !self.eventLoopRunning, !self.isStopping else { return }
             self.eventLoopRunning = true
-
+            
             self.eventQueue.async(group: self.eventQueueGroup) { [weak self] in
                 guard let self else { return }
                 defer {
