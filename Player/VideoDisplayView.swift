@@ -8,11 +8,7 @@ import Metal
 import QuartzCore
 
 final class VideoDisplayView: UIView {
-    override class var layerClass: AnyClass { MetalLayer.self }
-
-    var displayLayer: MetalLayer {
-        layer as! MetalLayer
-    }
+    let displayLayer = MetalLayer()
 
     var onViewSizeChanged: ((CGSize) -> Void)?
     private var lastSize: CGSize = .zero
@@ -37,11 +33,18 @@ final class VideoDisplayView: UIView {
         displayLayer.framebufferOnly = true
         displayLayer.contentsScale = UIScreen.main.nativeScale
         displayLayer.backgroundColor = UIColor.black.cgColor
+        displayLayer.contentsGravity = .resizeAspect
+        layer.insertSublayer(displayLayer, at: 0)
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if let screen = window?.screen { displayLayer.contentsScale = screen.nativeScale }
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-
+        
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         displayLayer.frame = bounds
@@ -64,5 +67,4 @@ final class MetalLayer: CAMetalLayer {
             }
         }
     }
-
 }
