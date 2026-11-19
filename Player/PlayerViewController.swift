@@ -291,8 +291,11 @@ public final class PlayerViewController: UIViewController {
     private var audioTracks: [AudioTrackInfo] = []
     private var currentAudioTrackID: Int?
     private var lastUIUpdateTime: TimeInterval = 0
+    private var lastProgressPersistTime: TimeInterval = 0
+    private var lastHighlightDuration: Double = -1
     
     private var originalSpeed: Double = 1.0
+    private var wasPlayingBeforeInterruption = false
     private var holdGesture: UILongPressGestureRecognizer?
     private var controlsHideWorkItem: DispatchWorkItem?
     private var controlsVisible = true
@@ -317,6 +320,7 @@ public final class PlayerViewController: UIViewController {
         setupLayout()
         setupActions()
         setupHoldGesture()
+        configureAudioSession()
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleLoggerNotification(_:)), name: NSNotification.Name("LoggerNotification"), object: nil)
         
@@ -329,6 +333,7 @@ public final class PlayerViewController: UIViewController {
         
         pipController = PiPController(metalLayer: primaryRenderView.displayLayer)
         pipController?.delegate = self
+        pipButton.isHidden = !(pipController?.isPictureInPictureSupported ?? false)
         
         showControlsTemporarily()
         
@@ -348,6 +353,7 @@ public final class PlayerViewController: UIViewController {
     public override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         view.bringSubviewToFront(errorBanner)
+        UIApplication.shared.isIdleTimerDisabled = true
     }
     
 #if !os(tvOS)
@@ -360,11 +366,15 @@ public final class PlayerViewController: UIViewController {
         super.viewWillAppear(animated)
         setNeedsStatusBarAppearanceUpdate()
     }
+#endif
+    
     public override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        UIApplication.shared.isIdleTimerDisabled = false
+#if !os(tvOS)
         setNeedsStatusBarAppearanceUpdate()
-    }
 #endif
+    }
     
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
@@ -381,6 +391,28 @@ public final class PlayerViewController: UIViewController {
         renderer.stop()
         NotificationCenter.default.removeObserver(self)
         ProgressManager.shared.flushPendingSave()
+        if Thread.isMainThread {
+            UIApplication.shared.isIdleTimerDisabled = false
+        } else {
+            DispatchQueue.main.async { UIApplication.shared.isIdleTimerDisabled = false }
+        }
+    }
+    
+    // MARK: - Audio session
+    
+    private func configureAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .moviePlayback, options: [])
+            try session.setActive(true)
+        } catch {
+            Logger.shared.log("Failed to configure audio session: \(error.localizedDescription)", type: "Warn")
+        }
+    }
+    
+    private func deactivateAudioSession() {
+        guard pipController?.isPictureInPictureActive != true else { return }
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
     
     // MARK: - Public init
@@ -395,6 +427,29 @@ public final class PlayerViewController: UIViewController {
     
     func load(url: URL, preset: PlayerPreset, headers: [String: String]? = nil) {
         pipController?.cancelPendingStart()
+        
+        subtitleURLs = []
+        embeddedSubtitleTracks = []
+        audioTracks = []
+        currentSubtitleSource = nil
+        currentAudioTrackID = nil
+        currentSubtitleIndex = 0
+        activeSkipSegmentID = nil
+        introDBSegments = []
+        progressModel.highlights = []
+        progressModel.position = 0
+        progressModel.duration = 1
+        lastProgressPersistTime = 0
+        lastHighlightDuration = -1
+        lastUIUpdateTime = 0
+        pendingSeekTime = nil
+        pendingSubtitleURLs = nil
+        cachedDuration = 0
+        cachedPosition = 0
+        subtitleButton.isHidden = true
+        skipSegmentButton.isHidden = true
+        skipSegmentButton.alpha = 0
+        
         renderer.load(url: url, with: preset, headers: headers)
         if let info = mediaInfo {
             prepareSeekToLastPosition(for: info)
@@ -626,7 +681,10 @@ public final class PlayerViewController: UIViewController {
             var body: some View {
                 HStack(spacing: 8) {
                     MusicProgressSlider(
-                        value: Binding(get: { Double(volume) }, set: { volume = Float($0) }),
+                        value: Binding(get: { Double(volume) }, set: { newValue in
+                            volume = Float(newValue)
+                            onVolumeChanged(volume)
+                        }),
                         inRange: 0...1.0,
                         activeFillColor: .white,
                         fillColor: .white,
@@ -634,11 +692,7 @@ public final class PlayerViewController: UIViewController {
                         height: 6,
                         highlights: [],
                         showsTimeLabels: false,
-                        onEditingChanged: { editing in
-                            if !editing {
-                                onVolumeChanged(volume)
-                            }
-                        }
+                        onEditingChanged: { _ in }
                     )
                     .frame(width: 96, height: 20)
                     
@@ -892,28 +946,44 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func setControlsAlpha(_ alpha: CGFloat) {
-        centerPlayPauseButton.alpha = alpha
-        controlsOverlayView.alpha = alpha
-        progressContainer.alpha = alpha
-        closeButton.alpha = alpha
-        pipButton.alpha = alpha
-        volumeContainer.alpha = alpha
-        skipBackwardButton.alpha = alpha
-        skipForwardButton.alpha = alpha
-        subtitleLabel.alpha = alpha
-        titleLabel.alpha = alpha
-        moreButton.alpha = alpha
+        let interactive = alpha > 0.01
+        let controls: [UIView] = [
+            centerPlayPauseButton,
+            progressContainer,
+            closeButton,
+            pipButton,
+            volumeContainer,
+            skipBackwardButton,
+            skipForwardButton,
+            subtitleLabel,
+            titleLabel,
+            moreButton
+        ]
         
-        if !subtitleButton.isHidden { subtitleButton.alpha = alpha }
-        if !skipSegmentButton.isHidden { skipSegmentButton.alpha = alpha }
+        for control in controls {
+            control.alpha = alpha
+            control.isUserInteractionEnabled = interactive
+        }
+        controlsOverlayView.alpha = alpha
+        
+        if !subtitleButton.isHidden {
+            subtitleButton.alpha = alpha
+            subtitleButton.isUserInteractionEnabled = interactive
+        }
+        if !skipSegmentButton.isHidden {
+            skipSegmentButton.alpha = alpha
+            skipSegmentButton.isUserInteractionEnabled = interactive
+        }
     }
     
     @objc private func closeTapped() {
+        persistProgress(position: cachedPosition, duration: cachedDuration, force: true)
         pipController?.cancelPendingStart()
         pipController?.delegate = nil
         if pipController?.isPictureInPictureActive == true { pipController?.stopPictureInPicture() }
         renderer.stop()
         ProgressManager.shared.flushPendingSave()
+        deactivateAudioSession()
         if presentingViewController != nil {
             dismiss(animated: true)
         } else {
@@ -942,28 +1012,49 @@ public final class PlayerViewController: UIViewController {
         self.cachedPosition = position
         
         let now = CACurrentMediaTime()
-        guard now - lastUIUpdateTime > 0.1 else { return }
-        lastUIUpdateTime = now
-        
-        if duration > 0 {
-            self.installProgressHostingControllerIfNeeded()
-            self.updateProgressHighlights(duration: duration)
+        if now - lastUIUpdateTime > 0.1 {
+            lastUIUpdateTime = now
+            
+            if duration > 0 {
+                self.installProgressHostingControllerIfNeeded()
+                self.updateProgressHighlights(duration: duration)
+            }
+            
+            if !isSeeking {
+                self.progressModel.position = position
+            }
+            self.progressModel.duration = max(duration, 1.0)
+            self.updateActiveSkipSegment(at: position, duration: duration)
+            
+            if self.pipController?.isPictureInPictureActive == true {
+                self.pipController?.invalidatePlaybackState()
+            }
         }
-        self.progressModel.position = position
-        self.progressModel.duration = max(duration, 1.0)
-        self.updateActiveSkipSegment(at: position, duration: duration)
         
-        if self.pipController?.isPictureInPictureActive == true {
-            self.pipController?.invalidatePlaybackState()
-        }
+        persistProgress(position: position, duration: duration)
+    }
+    
+    private func persistProgress(position: Double, duration: Double, force: Bool = false) {
+        guard position.isFinite, position >= 0,
+              duration.isFinite, duration > 0,
+              let info = mediaInfo else { return }
         
-        guard duration.isFinite, duration > 0, position >= 0, let info = mediaInfo else { return }
+        let now = CACurrentMediaTime()
+        guard force || now - lastProgressPersistTime >= 5.0 else { return }
+        lastProgressPersistTime = now
         
         switch info {
         case .movie(let id, let title):
-            ProgressManager.shared.updateMovieProgress(movieId: id, title: title, currentTime: position, totalDuration: duration)
+            ProgressManager.shared.updateMovieProgress(
+                movieId: id, title: title,
+                currentTime: position, totalDuration: duration
+            )
         case .episode(let showId, let showTitle, let season, let episode):
-            ProgressManager.shared.updateEpisodeProgress(showId: showId, showTitle: showTitle, seasonNumber: season, episodeNumber: episode, currentTime: position, totalDuration: duration)
+            ProgressManager.shared.updateEpisodeProgress(
+                showId: showId, showTitle: showTitle,
+                seasonNumber: season, episodeNumber: episode,
+                currentTime: position, totalDuration: duration
+            )
         }
     }
     
@@ -974,6 +1065,7 @@ public final class PlayerViewController: UIViewController {
             case .success(let segments):
                 DispatchQueue.main.async {
                     self.introDBSegments = segments
+                    self.lastHighlightDuration = -1
                     self.updateProgressHighlights(duration: self.cachedDuration)
                     self.updateActiveSkipSegment(at: self.cachedPosition, duration: self.cachedDuration)
                 }
@@ -985,6 +1077,10 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func updateProgressHighlights(duration: Double) {
+        guard duration > 0 else { return }
+        guard abs(duration - lastHighlightDuration) >= 1.0 else { return }
+        lastHighlightDuration = duration
+        
         let highlights = IntroDBService.shared.highlights(for: introDBSegments, duration: duration)
         progressModel.highlights = highlights.map {
             ProgressHighlight(start: $0.start, end: $0.end, color: Color($0.color), label: $0.label)
@@ -1006,6 +1102,7 @@ public final class PlayerViewController: UIViewController {
     private func showSkipButton(for segment: IntroDBSegment) {
         skipSegmentButton.setTitle("Skip \(segment.db.title)", for: .normal)
         skipSegmentButton.backgroundColor = segment.db.uiColor.withAlphaComponent(0.55)
+        skipSegmentButton.isUserInteractionEnabled = true
         guard skipSegmentButton.isHidden || skipSegmentButton.alpha < 1 else { return }
         skipSegmentButton.isHidden = false
         UIView.animate(withDuration: 0.2) { self.skipSegmentButton.alpha = 1.0 }
@@ -1017,6 +1114,7 @@ public final class PlayerViewController: UIViewController {
             self.skipSegmentButton.alpha = 0.0
         }, completion: { _ in
             self.skipSegmentButton.isHidden = true
+            self.skipSegmentButton.isUserInteractionEnabled = false
         })
     }
     
@@ -1098,7 +1196,7 @@ public final class PlayerViewController: UIViewController {
     private func createAppearanceMenu() -> UIMenu {
         let d = UserDefaults.standard
         func colorAction(title: String, color: UIColor, current: UIColor, key: String) -> UIAction {
-            UIAction(title: title, state: current.cgColor == color.cgColor ? .on : .off) { [weak self] _ in
+            UIAction(title: title, state: current.isEqual(color) ? .on : .off) { [weak self] _ in
                 if let data = try? NSKeyedArchiver.archivedData(withRootObject: color, requiringSecureCoding: false) {
                     d.set(data, forKey: key)
                 }
@@ -1124,7 +1222,7 @@ public final class PlayerViewController: UIViewController {
             colorAction(title: "None", color: .clear, current: sc, key: "subtitles_strokeColor")
         ])
         
-        let currentWidth = d.double(forKey: "subtitles_strokeWidth").nonZeroOr(1.0)
+        let currentWidth = storedDouble(forKey: "subtitles_strokeWidth", default: 1.0)
         func widthAction(_ name: String, _ w: Double) -> UIAction {
             UIAction(title: name, state: currentWidth == w ? .on : .off) { [weak self] _ in
                 d.set(w, forKey: "subtitles_strokeWidth")
@@ -1138,7 +1236,7 @@ public final class PlayerViewController: UIViewController {
             widthAction("Thick", 2)
         ])
         
-        let currentSize = d.double(forKey: "subtitles_fontSize").nonZeroOr(38.0)
+        let currentSize = storedDouble(forKey: "subtitles_fontSize", default: 38.0)
         func sizeAction(_ name: String, _ s: Double) -> UIAction {
             UIAction(title: name, state: currentSize == s ? .on : .off) { [weak self] _ in
                 d.set(s, forKey: "subtitles_fontSize")
@@ -1202,9 +1300,8 @@ public final class PlayerViewController: UIViewController {
     }
     
     private func currentSubtitleStyle() -> SubtitleStyle {
-        let d = UserDefaults.standard
-        let strokeWidth = d.double(forKey: "subtitles_strokeWidth").nonZeroOr(1.0)
-        let fontSize = d.double(forKey: "subtitles_fontSize").nonZeroOr(38.0)
+        let strokeWidth = storedDouble(forKey: "subtitles_strokeWidth", default: 1.0)
+        let fontSize = storedDouble(forKey: "subtitles_fontSize", default: 38.0)
         return SubtitleStyle(
             foregroundColor: subtitleUIColor(forKey: "subtitles_foregroundColor", default: .white),
             strokeColor: subtitleUIColor(forKey: "subtitles_strokeColor", default: .black),
@@ -1212,6 +1309,11 @@ public final class PlayerViewController: UIViewController {
             fontSize: CGFloat(fontSize),
             isVisible: subtitleIsVisible
         )
+    }
+    
+    private func storedDouble(forKey key: String, default fallback: Double) -> Double {
+        guard UserDefaults.standard.object(forKey: key) != nil else { return fallback }
+        return UserDefaults.standard.double(forKey: key)
     }
     
     private func presentStartupErrorAlert(message: String) {
@@ -1253,10 +1355,8 @@ public final class PlayerViewController: UIViewController {
               let message = info["message"] as? String,
               let type = info["type"] as? String else { return }
         
-        let lower = type.lowercased()
-        if lower == "error" || lower == "warn" || message.lowercased().contains("error") || message.lowercased().contains("warn") {
-            showTransientErrorBanner(message)
-        }
+        guard type.lowercased() == "error" else { return }
+        showTransientErrorBanner(message)
     }
     
     private func showErrorBanner(_ message: String) {
@@ -1315,6 +1415,9 @@ extension PlayerViewController: MPVRendererDelegate {
     func renderer(_ renderer: MPVRenderer, didChangePause isPaused: Bool) {
         updatePlayPauseButton(isPaused: isPaused)
         pipController?.invalidatePlaybackState()
+        if isPaused {
+            persistProgress(position: cachedPosition, duration: cachedDuration, force: true)
+        }
     }
     func renderer(_ renderer: MPVRenderer, didChangeLoading isLoading: Bool) {
         DispatchQueue.main.async { [weak self] in
@@ -1350,6 +1453,9 @@ extension PlayerViewController: MPVRendererDelegate {
             }
             self.setupMoreButtonMenu()
         }
+    }
+    func renderer(_ renderer: MPVRenderer, didFailWith message: String) {
+        showTransientErrorBanner("Playback error: \(message)", duration: 6.0)
     }
     func renderer(_ renderer: MPVRenderer, didUpdateSubtitleTracks tracks: [SubtitleTrackInfo]) {
         embeddedSubtitleTracks = tracks
@@ -1414,22 +1520,20 @@ extension PlayerViewController: PiPControllerDelegate {
     public func pipControllerCurrentTime(_ c: PiPController) -> Double { cachedPosition }
     
     @objc private func appWillResignActive() {
+        persistProgress(position: cachedPosition, duration: cachedDuration, force: true)
         ProgressManager.shared.flushPendingSave()
     }
     
     @objc private func appDidEnterBackground() {
+        persistProgress(position: cachedPosition, duration: cachedDuration, force: true)
         ProgressManager.shared.flushPendingSave()
-        guard let pip = pipController, !pip.isPictureInPictureActive else { return }
+        guard let pip = pipController,
+              pip.isPictureInPictureSupported,
+              !pip.isPictureInPictureActive else { return }
         pip.startPictureInPicture()
     }
     
     @objc private func appDidBecomeActive() {
         pipController?.cancelPendingStart()
     }
-}
-
-// MARK: - Helpers
-
-private extension Double {
-    func nonZeroOr(_ fallback: Double) -> Double { self != 0 ? self : fallback }
 }

@@ -31,6 +31,7 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
     @State private var localRealProgress: T = 0
     @State private var localTempProgress: T = 0
     @GestureState private var isActive: Bool = false
+    @State private var isEditing: Bool = false
     @State private var progressDuration: T = 0
     
     init(
@@ -128,14 +129,22 @@ struct MusicProgressSlider<T: BinaryFloatingPoint>: View {
                         state = true
                     }
                     .onChanged { gesture in
-                        localTempProgress = T(gesture.translation.width / bounds.size.width)
-                        let prg = max(min((localRealProgress + localTempProgress), 1), 0)
-                        progressDuration = inRange.upperBound * prg
+                        if !isEditing {
+                            isEditing = true
+                            onEditingChanged(true)
+                        }
+                        let width = max(bounds.size.width, 1)
+                        let progress = max(min(T(gesture.location.x / width), 1), 0)
+                        localTempProgress = progress - localRealProgress
+                        let preview = inRange.lowerBound + progress * (inRange.upperBound - inRange.lowerBound)
+                        progressDuration = preview
+                        value = preview
                     }
                     .onEnded { _ in
                         localRealProgress = max(min(localRealProgress + localTempProgress, 1), 0)
                         localTempProgress = 0
                         value = max(min(getPrgValue(), inRange.upperBound), inRange.lowerBound)
+                        isEditing = false
                         onEditingChanged(false)
                     }
             )
