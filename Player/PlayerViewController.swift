@@ -347,6 +347,7 @@ public final class PlayerViewController: UIViewController {
         NotificationCenter.default.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(handleAudioInterruption(_:)), name: AVAudioSession.interruptionNotification, object: nil)
         subscribeToSubtitleSettings()
     }
     
@@ -1535,5 +1536,31 @@ extension PlayerViewController: PiPControllerDelegate {
     
     @objc private func appDidBecomeActive() {
         pipController?.cancelPendingStart()
+    }
+    
+    @objc private func handleAudioInterruption(_ note: Notification) {
+        guard let info = note.userInfo,
+              let rawType = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: rawType) else { return }
+        
+        switch type {
+        case .began:
+            wasPlayingBeforeInterruption = !renderer.isPausedState
+            if wasPlayingBeforeInterruption {
+                renderer.pausePlayback()
+            }
+            
+        case .ended:
+            let rawOptions = info[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: rawOptions)
+            if wasPlayingBeforeInterruption, options.contains(.shouldResume) {
+                try? AVAudioSession.sharedInstance().setActive(true)
+                renderer.play()
+            }
+            wasPlayingBeforeInterruption = false
+            
+        @unknown default:
+            break
+        }
     }
 }
